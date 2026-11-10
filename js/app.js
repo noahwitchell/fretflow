@@ -6,17 +6,16 @@ import { selectChord, playChord, addToProg, removeFromProg, clearProg, playProg,
 import clock from './views/clock.js';
 import wheel from './views/wheel.js';
 import tonnetz from './views/tonnetz.js';
-import fretboard from './views/fretboard.js';
 import ear from './views/ear.js';
 
 const VIEWS = [
   { v: clock, label: 'Clock' },
   { v: wheel, label: 'Wheel' },
   { v: tonnetz, label: 'Grid' },
-  { v: fretboard, label: 'Neck' },
   { v: ear, label: 'Ear' },
 ];
 const $ = s => document.querySelector(s);
+if (!VIEWS.some(x => x.v.id === state.view)) state.view = 'clock';
 
 C.setColorMap(state.colorMap);
 
@@ -93,8 +92,8 @@ function renderSheet() {
     <div class="seg-ctl">${opt('colorMode', 'flash', 'Flash', state.colorMode)}${opt('colorMode', 'hold', 'Hold', state.colorMode)}${opt('colorMode', 'off', 'Off', state.colorMode)}</div>
     <div class="seg-ctl">${opt('colorMap', 'chromatic', 'Chromatic (C red → B rose)', state.colorMap)}${opt('colorMap', 'fifths', 'By fifths (related = similar)', state.colorMap)}</div>
     <div class="strip">${[...Array(12).keys()].map(pc => `<span style="background:${C.noteColor(pc)}">${T.noteName(pc, flats)}</span>`).join('')}</div>
-    <h3>Neck</h3>
-    <div class="seg-ctl">${opt('scaleDots', true, 'Show key dots', state.scaleDots)}${opt('scaleDots', false, 'Chord only', state.scaleDots)}</div>
+    <h3>Tapping a chord plays</h3>
+    <div class="seg-ctl">${opt('tapSound', 'both', 'Notes, then chord', state.tapSound)}${opt('tapSound', 'arp', 'Notes one by one', state.tapSound)}${opt('tapSound', 'strum', 'Whole chord', state.tapSound)}</div>
     <h3>Progression</h3>
     <div class="seg-ctl">${[70, 90, 110, 130].map(t => opt('tempo', t, `${t} bpm`, state.tempo)).join('')}</div>
     <div class="seg-ctl">${opt('loop', true, 'Loop', state.loop)}${opt('loop', false, 'Play once', state.loop)}</div>
@@ -124,8 +123,7 @@ function renderInspector() {
     <div class="row2">
       <div class="pills">${pills}</div>
       <div class="acts">
-        <button class="btn icon" data-play="strum" title="Strum">Strum</button>
-        <button class="btn icon" data-play="arp" title="Arpeggio">Arp</button>
+        <button class="btn icon" data-play="tap" title="Play">▶</button>
         <button class="btn primary icon" data-add title="Add to progression">+ Add</button>
       </div>
     </div>
@@ -134,7 +132,7 @@ function renderInspector() {
 $('#inspector').addEventListener('click', e => {
   const c = state.chord;
   const p = e.target.closest('.pill'); if (p) return playMidi(+p.dataset.midi);
-  const pl = e.target.closest('[data-play]'); if (pl) return playChord(c, pl.dataset.play);
+  const pl = e.target.closest('[data-play]'); if (pl) { A.stopAll(); return playChord(c, pl.dataset.play === 'tap' ? state.tapSound : pl.dataset.play); }
   if (e.target.closest('[data-add]')) return addToProg(c);
   if (e.target.closest('[data-makekey]')) return set({ key: { tonic: c.root, mode: c.type === 'maj' ? 'major' : 'minor' } });
   const ty = e.target.closest('[data-type]'); if (ty) selectChord({ root: c.root, type: ty.dataset.type });
@@ -170,7 +168,15 @@ on('change', patch => {
 });
 renderAll();
 
-// unlock audio on first touch (iOS)
-window.addEventListener('pointerdown', () => A.audio(), { once: true });
+// Keep sound alive on iPhone: unlock on touch, and revive after the screen locks/unlocks.
+window.addEventListener('pointerdown', () => { A.audio(); A.revive(); }, { capture: true });
+document.addEventListener('visibilitychange', () => { if (!document.hidden) A.revive(); });
+window.addEventListener('pageshow', () => A.revive());
+window.addEventListener('focus', () => A.revive());
+
+// No zooming from quick double taps or pinches: this is an instrument, not a page.
+document.addEventListener('gesturestart', e => e.preventDefault());
+document.addEventListener('dblclick', e => e.preventDefault(), { passive: false });
+// (double-tap zoom itself is switched off by touch-action: manipulation in the CSS)
 
 if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js');

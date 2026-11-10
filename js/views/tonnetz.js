@@ -22,8 +22,12 @@ function render() {
   const key = state.key, flats = T.usesFlats(key), chord = state.chord;
   const cpcs = new Set(T.chordPcs(chord));
   const scale = new Set(T.scalePcs(key));
-  const i0 = Math.floor(COLS / 2) - Math.floor(Math.floor(ROWS / 2) / 2), j0 = Math.floor(ROWS / 2);
-  const offset = T.mod12(key.tonic - (7 * i0 + 4 * j0));
+  // Centre the lattice on the selected chord's triangle (▲ major rooted at the centre node,
+  // ▼ minor whose root sits a major 3rd above it).
+  const j0 = Math.floor((ROWS - 1) / 2), i0 = Math.floor((COLS - 1) / 2) - Math.floor(j0 / 2);
+  const fam = T.FAMILY[chord.type] === 'min' ? 'min' : 'maj';
+  const centreTri = { root: chord.root, type: fam };
+  const offset = T.mod12((fam === 'maj' ? chord.root : chord.root - 4) - (7 * i0 + 4 * j0));
   const pcAt = (i, j) => T.mod12(7 * i + 4 * j + offset);
 
   const nodes = new Map();
@@ -33,30 +37,42 @@ function render() {
   }
   const N = (i, j) => nodes.get(`${i},${j}`);
 
+  // Every note repeats across the lattice. Keep the copy nearest the centre chord at full
+  // strength and fade the rest to ghosts, so each note appears once.
+  const ca = N(i0, j0), cb = N(i0 + 1, j0), cu = N(i0, j0 + 1), cd = N(i0 + 1, j0 + 1);
+  const ctr = fam === 'maj' ? [ca, cb, cu] : [cb, cu, cd];
+  const cx0 = ctr.reduce((s, n) => s + n.x, 0) / 3, cy0 = ctr.reduce((s, n) => s + n.y, 0) / 3;
+  const best = new Map();
+  for (const n of nodes.values()) {
+    const d = Math.hypot(n.x - cx0, n.y - cy0);
+    if (!best.has(n.pc) || d < best.get(n.pc).d) best.set(n.pc, { d, n });
+  }
+  for (const n of nodes.values()) n.ghost = best.get(n.pc).n !== n;
+
   const neigh = T.plr(chord) || {};
   const tag = c => Object.entries(neigh).find(([, n]) => T.sameChord(n, c))?.[0];
 
   const tris = [];
   for (const n of nodes.values()) {
     const a = n, b = N(n.i + 1, n.j), u = N(n.i, n.j + 1), d = N(n.i + 1, n.j + 1);
-    if (b && u) tris.push({ pts: [a, b, u], c: { root: a.pc, type: 'maj' } });
-    if (b && u && d) tris.push({ pts: [b, u, d], c: { root: T.mod12(a.pc + 4), type: 'min' } });
+    if (b && u) tris.push({ pts: [a, b, u], c: { root: a.pc, type: 'maj' }, ghost: a.ghost || b.ghost || u.ghost, centre: a === ca && fam === 'maj' });
+    if (b && u && d) tris.push({ pts: [b, u, d], c: { root: T.mod12(a.pc + 4), type: 'min' }, ghost: b.ghost || u.ghost || d.ghost, centre: a === ca && fam === 'min' });
   }
 
   let triSvg = '', lbl = '';
   const centroids = [];
   for (const t of tris) {
     const pcs = T.chordPcs(t.c);
-    const inChord = pcs.every(p => cpcs.has(p));
+    const inChord = t.ghost ? false : pcs.every(p => cpcs.has(p));
     const dia = T.isDiatonic(t.c, key);
     const nb = tag(t.c);
     const cx = (t.pts[0].x + t.pts[1].x + t.pts[2].x) / 3, cy = (t.pts[0].y + t.pts[1].y + t.pts[2].y) / 3;
-    centroids.push({ c: t.c, x: cx, y: cy });
-    triSvg += `<polygon class="tri ${inChord ? 'sel' : ''} ${dia ? 'dia' : ''} ${nb ? 'nb' : ''}" data-root="${t.c.root}" data-type="${t.c.type}"
+    centroids.push({ c: t.c, x: cx, y: cy, ghost: t.ghost });
+    triSvg += `<polygon class="tri ${inChord ? 'sel' : ''} ${dia ? 'dia' : ''} ${nb && !t.ghost ? 'nb' : ''} ${t.ghost ? 'ghost' : ''}" data-root="${t.c.root}" data-type="${t.c.type}"
       points="${t.pts.map(p => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ')}"
-      style="fill:${C.noteColor(t.c.root, 4, inChord ? 0.75 : dia ? 0.26 : 0.07)}"/>`;
-    lbl += `<text class="tri-l ${inChord ? 'sel' : ''} ${dia ? 'dia' : ''}" x="${cx.toFixed(1)}" y="${(cy + 4).toFixed(1)}">${T.chordName(t.c, flats)}</text>`;
-    if (nb) lbl += `<text class="nb-tag" x="${cx.toFixed(1)}" y="${(cy + (t.c.type === 'maj' ? 17 : -9)).toFixed(1)}">${nb}</text>`;
+      style="fill:${C.noteColor(t.c.root, 4, t.ghost ? 0.04 : inChord ? 0.75 : dia ? 0.26 : 0.1)}"/>`;
+    if (!t.ghost) lbl += `<text class="tri-l ${inChord ? 'sel' : ''} ${dia ? 'dia' : ''}" x="${cx.toFixed(1)}" y="${(cy + 4).toFixed(1)}">${T.chordName(t.c, flats)}</text>`;
+    if (nb && !t.ghost) lbl += `<text class="nb-tag" x="${cx.toFixed(1)}" y="${(cy + (t.c.type === 'maj' ? 17 : -9)).toFixed(1)}">${nb}</text>`;
   }
 
   // progression path: nearest instance of each triad to the previous one
@@ -82,8 +98,8 @@ function render() {
   for (const n of nodes.values()) {
     const on = cpcs.has(n.pc), inScale = scale.has(n.pc);
     const label = state.labels === 'degree' ? T.DEGREE_NAMES[T.mod12(n.pc - key.tonic)] : T.noteName(n.pc, flats);
-    nodeSvg += `<g class="tnode ${on ? 'on' : ''} ${inScale ? 'scale' : ''}" data-pc="${n.pc}" transform="translate(${n.x.toFixed(1)},${n.y.toFixed(1)})">
-      <circle r="${on ? 15 : 12}" fill="${C.noteColor(n.pc, 4, on ? 1 : inScale ? 0.55 : 0.2)}"/><text dy="4">${label}</text></g>`;
+    nodeSvg += `<g class="tnode ${on && !n.ghost ? 'on' : ''} ${inScale ? 'scale' : ''} ${n.ghost ? 'ghost' : ''}" data-pc="${n.pc}" transform="translate(${n.x.toFixed(1)},${n.y.toFixed(1)})">
+      <circle r="${on && !n.ghost ? 16 : 12}" fill="${C.noteColor(n.pc, 4, n.ghost ? 0.12 : on ? 1 : inScale ? 0.6 : 0.3)}"/><text dy="4">${label}</text></g>`;
   }
 
   const w = (COLS - 0.5) * W, h = (ROWS - 1) * H;
@@ -96,7 +112,7 @@ export default {
   mount(root) {
     el = root;
     el.innerHTML = `<div class="stage"></div>
-      <p class="hint">Each triangle is a chord: ▲ major, ▼ minor. Chords touching along an edge share two notes. <b>P R L</b> mark the three one-note moves from the current chord. Your progression draws a path.</p>`;
+      <p class="hint">Your chord sits in the middle; every note appears once at full strength (the faded copies are the same notes repeating). Each triangle is a chord, ▲ major ▼ minor. The three <b>P R L</b> neighbours share 2 notes: tap one to step there.</p>`;
     el.addEventListener('click', e => {
       const n = e.target.closest('.tnode');
       if (n) return playMidi(60 + +n.dataset.pc);

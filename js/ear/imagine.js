@@ -3,15 +3,15 @@ import * as T from '../theory.js';
 import * as C from '../color.js';
 import * as A from '../audio.js';
 import { data, save } from './log.js';
-import { ring } from './ui.js';
+import { ring, PLAIN } from './ui.js';
 
-let el, oct = 4, prompt = null, hideNames = false;
+let el, oct = 4, prompt = null, hideNames = false, lit = null;
 
 function fb(msg, cls = '') { const f = el.querySelector('.ear-fb'); f.innerHTML = msg; f.className = `ear-fb ${cls}`; }
 
 function paint() {
   const items = [...Array(12).keys()].map(pc => ({
-    k: pc, label: hideNames ? '?' : T.noteName(pc), color: C.noteColor(pc, oct), slot: C.wheelPos(pc),
+    k: pc, label: hideNames ? '?' : T.noteName(pc), color: pc === lit ? C.noteColor(pc, oct) : PLAIN, slot: C.wheelPos(pc),
     cls: pc === prompt ? 'correct' : '',
   }));
   el.querySelector('.ring-slot').innerHTML = ring(items, `<div class="ear-big">Oct ${oct}</div><div class="ear-small">imagine, then tap</div>`);
@@ -43,6 +43,7 @@ export default {
         A.playNote((oct + 1) * 12 + pc, { dur: 2.4 });
         fb(`${T.noteName(pc)}${oct} · ${C.colorName(pc)}${data.anchors[pc] ? ` · <span class="dim">${data.anchors[pc]}</span>` : ''}`);
         if (pc === prompt) prompt = null;
+        lit = pc; // its colour shows only after you've heard it
         paint(); return;
       }
       const h = e.target.closest('[data-hear]');
@@ -51,7 +52,7 @@ export default {
       if (act === 'dn') { oct = Math.max(2, oct - 1); paint(); }
       if (act === 'up') { oct = Math.min(6, oct + 1); paint(); }
       if (act === 'prompt') {
-        prompt = Math.floor(Math.random() * 12);
+        prompt = Math.floor(Math.random() * 12); lit = null;
         const a = data.anchors[prompt];
         fb(`Imagine <b>${T.noteName(prompt)}</b>${a ? ` <span class="dim">(${a})</span>` : ''}. Hum it, then tap it to check.`);
         paint();

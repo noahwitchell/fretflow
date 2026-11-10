@@ -3,8 +3,10 @@ import { state } from '../store.js';
 import * as T from '../theory.js';
 import * as C from '../color.js';
 import { selectChord, playMidi } from '../actions.js';
+import * as A from '../audio.js';
 
-let el;
+let el, built = new Set(), synced = '';
+const ck = c => `${c.root}:${c.type}`;
 const R = 150;
 // position follows the colour map, so the clock IS the colour wheel
 const slot = (s, r = R) => {
@@ -27,8 +29,12 @@ function hueRing() {
 }
 
 function render() {
-  const key = state.key, flats = T.usesFlats(key), chord = state.chord;
-  const pcs = T.chordPcs(chord);
+  const key = state.key, flats = T.usesFlats(key);
+  // follow chords chosen elsewhere; otherwise keep the notes tapped here
+  if (ck(state.chord) !== synced) { built = new Set(T.chordPcs(state.chord)); synced = ck(state.chord); }
+  const pcs = [...built];
+  const named = pcs.length >= 2 ? T.identifyAny(pcs, state.chord.root) : null;
+  const chord = named || { root: pcs.length ? (pcs.includes(state.chord.root) ? state.chord.root : pcs[0]) : state.chord.root, type: 'maj' };
   const scale = new Set(T.scalePcs(key));
   const scheme = C.schemeFor(pcs);
   // walk the chord tones in wheel order, starting from the root
@@ -58,8 +64,8 @@ function render() {
   }
 
   el.querySelector('.hint').innerHTML = C.getMap() === 'fifths'
-    ? 'Notes in circle-of-fifths order, which is also the colour wheel. Neighbours are a 5th apart, so close colours = consonant notes. Numbers = steps of a 5th (×30° of hue).'
-    : 'Tap a note to make it the root. The shape <b>is</b> the chord: every major chord is the same triangle, minor is its mirror. Numbers = half-steps (×30° of hue).';
+    ? 'Notes in circle-of-fifths order (= the colour wheel). Tap notes to build a chord; neighbours are a 5th apart, so close colours = consonant notes. Numbers = steps of a 5th.'
+    : 'Tap notes one at a time to build a chord: each plays alone, the shape grows, and the name appears. Tap the middle to hear them together. Numbers = half-steps between notes.';
   el.querySelector('.stage').innerHTML = `
     <svg viewBox="-200 -200 400 400" class="clock">
       ${hueRing()}
@@ -67,9 +73,10 @@ function render() {
       ${pcs.length > 1 ? `<polygon points="${shapePts}" class="shape" style="fill:${C.noteColor(chord.root, 4, 0.22)};stroke:${C.noteColor(chord.root, 5, 0.95)}"/>` : ''}
       ${sides}
       ${notes}
-      <text class="center-name" y="-4">${T.chordName(chord, flats)}</text>
-      <text class="center-sub" y="18">${T.CHORD_TYPES[chord.type].name}</text>
-      <text class="scheme-name" y="38">${scheme.name}</text>
+      <circle r="62" class="center-hit"/>
+      <text class="center-name" y="-8">${named ? T.chordName(named, flats) : pcs.length ? pcs.map(p => T.noteName(p, flats)).join(' ') : '…'}</text>
+      <text class="center-sub" y="14">${named ? T.CHORD_TYPES[named.type].name : pcs.length < 2 ? 'tap notes to build' : 'not a named chord'}</text>
+      ${pcs.length >= 2 ? `<text class="scheme-name" y="32">${scheme.name}</text><text class="center-play" y="52">▶ hear it</text>` : ''}
     </svg>`;
 }
 
@@ -77,14 +84,25 @@ export default {
   id: 'clock',
   mount(root) {
     el = root;
-    el.innerHTML = `<div class="stage"></div>
+    el.innerHTML = `<div class="clock-tools"><button class="btn small" data-clear>Clear notes</button></div><div class="stage"></div>
       <p class="hint"></p>`;
     el.addEventListener('click', e => {
+      if (e.target.closest('[data-clear]')) { built = new Set(); render(); return; }
+      if (e.target.closest('.center-hit')) {
+        if (built.size) { A.stopAll(); [...built].sort((a, b) => T.mod12(a - state.chord.root) - T.mod12(b - state.chord.root))
+          .forEach((pc, i, arr) => { const m = 60 + T.mod12(pc - state.chord.root) + (state.chord.root > 4 ? state.chord.root - 12 : state.chord.root);
+            playMidi(m, { at: i * 0.3, dur: 1.4 }); playMidi(m, { at: arr.length * 0.3 + 0.15 + i * 0.03, dur: 2.2, notify: false }); }); }
+        return;
+      }
       const g = e.target.closest('.cnode');
       if (!g) return;
       const pc = +g.dataset.pc;
-      if (pc === state.chord.root) playMidi(60 + pc);
-      else selectChord({ root: pc, type: state.chord.type });
+      // build note by note: each tap plays just that note and adds/removes it
+      playMidi(60 + pc, { dur: 1.6 });
+      if (built.has(pc)) built.delete(pc); else built.add(pc);
+      const named = built.size >= 2 ? T.identifyAny([...built], state.chord.root) : null;
+      if (named) { synced = ck(named); selectChord(named, { play: false }); }
+      else render();
     });
   },
   render,

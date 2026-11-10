@@ -11,7 +11,7 @@
   --r: 14px;
   color-scheme: dark;
 }
-* { box-sizing: border-box; }
+* { box-sizing: border-box; touch-action: manipulation; }
 html, body { margin: 0; height: 100%; }
 body {
   background: var(--bg); color: var(--text); overflow: hidden;
@@ -73,7 +73,9 @@ svg text { fill: #fff; text-anchor: middle; font-weight: 650; paint-order: strok
 .clock .cnode.on circle { stroke: #fff; stroke-width: 2; }
 .clock .cnode.root circle { stroke-width: 4; }
 .clock .gap { font-size: 12px; fill: var(--dim); stroke: none; }
-.clock .center-name { font-size: 34px; font-weight: 750; }
+.clock .center-name { font-size: 30px; font-weight: 750; }
+.clock .center-hit { fill: transparent; cursor: pointer; }
+.clock .center-play { font-size: 12px; fill: var(--dim); stroke: none; }
 .clock .center-sub { font-size: 12px; fill: var(--dim); stroke: none; }
 
 /* wheel */
@@ -87,6 +89,10 @@ svg text { fill: #fff; text-anchor: middle; font-weight: 650; paint-order: strok
 .wheel .seg:not(.dia) text { fill: rgba(255,255,255,0.5); }
 .wheel .seg.tonic path { stroke: var(--accent); stroke-width: 3.5; }
 .wheel .seg.sel path { stroke: #fff; stroke-width: 4; }
+.wheel .seg.share2 path { stroke: var(--accent); stroke-width: 3; }
+.wheel .seg.share1 path { stroke: rgba(245,181,68,0.35); stroke-width: 2; }
+.wheel { touch-action: none; cursor: grab; }
+.hint .k2 { color: var(--accent); font-weight: 650; }
 .wheel .seg.beat path { filter: brightness(1.5); }
 .wheel .hub { fill: var(--panel-solid); stroke: var(--line); cursor: pointer; }
 .wheel .hub-key { font-size: 22px; font-weight: 750; }
@@ -95,6 +101,8 @@ svg text { fill: #fff; text-anchor: middle; font-weight: 650; paint-order: strok
 /* tonnetz */
 .tonnetz .tri { stroke: rgba(255,255,255,0.06); stroke-width: 1; cursor: pointer; transition: fill 0.2s; }
 .tonnetz .tri.sel { stroke: #fff; stroke-width: 2.5; }
+.tonnetz .tri.ghost { stroke: rgba(255,255,255,0.025); }
+.tonnetz .tnode.ghost text { fill: rgba(255,255,255,0.22); stroke: none; }
 .tonnetz .tri.nb { stroke: var(--accent); stroke-width: 1.5; stroke-dasharray: 4 3; }
 .tonnetz .tri-l { font-size: 10px; fill: rgba(255,255,255,0.32); stroke: none; }
 .tonnetz .tri-l.dia { fill: rgba(255,255,255,0.75); }
@@ -109,21 +117,6 @@ svg text { fill: #fff; text-anchor: middle; font-weight: 650; paint-order: strok
 .tonnetz .pstep text { fill: #111; stroke: none; font-size: 10px; font-weight: 800; }
 .tonnetz .pstep.beat circle { fill: var(--accent); }
 
-/* fretboard */
-.neck-scroll { width: 100%; height: 100%; overflow: auto; display: flex; -webkit-overflow-scrolling: touch; }
-.neck-scroll.h { align-items: center; }
-.neck-scroll.v { justify-content: center; }
-.neck { flex: none; margin: auto; }
-.neck-scroll.v .neck { margin: 0 auto; }
-.neck .fret { stroke: rgba(255,255,255,0.22); stroke-width: 1.5; }
-.neck .nut { stroke: #e8e2d0; stroke-width: 5; }
-.neck .string { stroke: #b9b2a0; }
-.neck .inlay { fill: rgba(255,255,255,0.12); }
-.neck .fnum, .neck .sname { font-size: 11px; fill: var(--dim); stroke: none; font-weight: 600; }
-.neck .hit { fill: transparent; cursor: pointer; }
-.neck .fdot text { font-size: 11px; }
-.neck .fdot.root circle { stroke: #fff; stroke-width: 2.5; }
-
 /* inspector */
 #inspector { min-width: 0; margin: 0 10px; padding: 10px 12px; background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); }
 .insp-top { display: flex; align-items: center; gap: 12px; }
@@ -137,7 +130,7 @@ svg text { fill: #fff; text-anchor: middle; font-weight: 650; paint-order: strok
 .cmeta .roman { color: var(--accent); font-weight: 650; }
 .cmeta .roman.out { color: var(--dim); }
 .pills { display: flex; gap: 5px; flex-wrap: wrap; }
-.pill { min-width: 40px; border: 0; border-radius: 10px; padding: 4px 8px 3px; background: var(--c); display: flex; flex-direction: column; align-items: center; min-width: 46px; text-shadow: 0 1px 2px rgba(0,0,0,0.45); }
+.pill { min-width: 36px; border: 0; border-radius: 10px; padding: 4px 6px 3px; background: var(--c); display: flex; flex-direction: column; align-items: center; min-width: 46px; text-shadow: 0 1px 2px rgba(0,0,0,0.45); }
 .pill b { font-size: 14px; }
 .pill small { font-size: 10.5px; opacity: 0.9; }
 .acts { display: flex; gap: 6px; flex-wrap: wrap; }
@@ -159,7 +152,7 @@ svg text { fill: #fff; text-anchor: middle; font-weight: 650; paint-order: strok
 .chip .x { position: absolute; right: 5px; top: 3px; font-size: 13px; opacity: 0.65; padding: 0 2px; }
 
 /* tabs */
-.tabs { display: grid; grid-template-columns: repeat(5, 1fr); border-top: 1px solid var(--line); background: rgba(11,13,18,0.85); padding-bottom: env(safe-area-inset-bottom); }
+.tabs { display: grid; grid-template-columns: repeat(4, 1fr); border-top: 1px solid var(--line); background: rgba(11,13,18,0.85); padding-bottom: env(safe-area-inset-bottom); }
 .tabs button { border: 0; background: transparent; padding: 12px 0; color: var(--dim); font-weight: 650; font-size: 14px; }
 .tabs button.on { color: #fff; box-shadow: inset 0 2px 0 var(--accent); }
 
@@ -278,3 +271,5 @@ p.small { margin: 6px 0; text-align: center; }
 .pernote { display: grid; grid-template-columns: repeat(6, 1fr); gap: 5px; width: 100%; }
 .pernote div { border-radius: 10px; padding: 6px 2px; text-align: center; border: 1px solid var(--line); box-shadow: inset 0 3px 0 var(--c); display: flex; flex-direction: column; font-size: 12px; }
 .pernote small { color: var(--dim); font-size: 10px; min-height: 12px; }
+
+.clock-tools { display: flex; justify-content: flex-end; padding: 2px 4px 0; position: relative; z-index: 2; height: 0; overflow: visible; }

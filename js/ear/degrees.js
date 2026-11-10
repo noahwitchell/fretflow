@@ -5,7 +5,7 @@ import * as T from '../theory.js';
 import * as C from '../color.js';
 import * as A from '../audio.js';
 import { data, save, logDeg } from './log.js';
-import { ring, seg, pct } from './ui.js';
+import { ring, seg, pct, PLAIN } from './ui.js';
 
 let el, q = null, answered = false, busy = false, sess = { n: 0, ok: 0 };
 const SOLFEGE = ['Do', 'Ra', 'Re', 'Me', 'Mi', 'Fa', 'Fi', 'So', 'Le', 'La', 'Te', 'Ti'];
@@ -85,7 +85,7 @@ function paint(correct = null, wrong = null) {
     const p = data.deg[d];
     return {
       k: d, label: T.DEGREE_NAMES[d], sub: `${SOLFEGE[d]}${p && p.n ? ' · ' + pct(p.ok, p.n) : ''}`,
-      color: answered && d === q?.deg ? C.noteColor(key.tonic + d) : `hsla(220, 12%, ${d === 0 ? 40 : 26}%, 1)`,
+      color: answered && d === q?.deg ? C.noteColor(key.tonic + d) : PLAIN,
       disabled: !allowed.has(d), cls: `${d === correct ? 'correct' : ''} ${d === wrong ? 'wrong' : ''}`,
     };
   });

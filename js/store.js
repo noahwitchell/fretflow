@@ -10,7 +10,7 @@ const defaults = {
   colorMode: 'flash',    // 'flash' | 'hold' | 'off'
   colorMap: 'chromatic', // 'chromatic' | 'fifths'
   sevenths: false,
-  scaleDots: true,
+  tapSound: 'both',     // 'both' | 'arp' | 'strum'
   tempo: 90,
   loop: true,
   ear: { range: '4', pool: 'chromatic', blind: true, stats: {} },

@@ -158,3 +158,16 @@ export function voice(c, prev = null) {
 // Guitar
 export const TUNING = [64, 59, 55, 50, 45, 40]; // high e → low E
 export const STRING_NAMES = ['e', 'B', 'G', 'D', 'A', 'E'];
+
+// Name any set of pitch classes as a chord (any root). Prefers `preferRoot` when it fits.
+export function identifyAny(pcs, preferRoot = null) {
+  const want = [...new Set(pcs.map(mod12))].sort((a, b) => a - b).join();
+  const hits = [];
+  for (const root of [...new Set(pcs.map(mod12))]) {
+    for (const [type, t] of Object.entries(CHORD_TYPES)) {
+      const s = [...new Set(t.iv.map(v => mod12(root + v)))].sort((a, b) => a - b).join();
+      if (s === want) hits.push({ root, type });
+    }
+  }
+  return hits.find(h => h.root === preferRoot) || hits[0] || null;
+}

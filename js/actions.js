@@ -13,8 +13,14 @@ export function chordMidis(c) {
 
 export function playChord(c, style = 'strum') {
   const midis = chordMidis(c);
-  if (style === 'arp') {
-    midis.forEach((m, i) => A.playNote(m, { at: i * 0.22, dur: 1.8 }));
+  if (style === 'arp' || style === 'both') {
+    // chord tones one at a time, low to high (skip the doubled bass root)
+    const tones = midis.slice(1);
+    tones.forEach((m, i) => A.playNote(m, { at: i * 0.3, dur: 1.4 }));
+    if (style === 'arp') return;
+    const at = tones.length * 0.3 + 0.15;
+    midis.forEach((m, i) => A.playNote(m, { at: at + i * 0.03, notify: false, vel: i === 0 ? 0.7 : 0.55 }));
+    setTimeout(() => emit('chordSound', c), at * 1000);
     return;
   }
   const gap = style === 'strum' ? 0.03 : 0;
@@ -22,9 +28,9 @@ export function playChord(c, style = 'strum') {
   emit('chordSound', c);
 }
 
-export function selectChord(c, { play = true, style = 'strum' } = {}) {
+export function selectChord(c, { play = true, style = state.tapSound || 'both' } = {}) {
   set({ chord: { root: c.root, type: c.type } });
-  if (play) playChord(c, style);
+  if (play) { A.stopAll(); playChord(c, style); } // cut the last chord so quick taps don't pile up
 }
 
 export const playMidi = (m, opts) => A.playNote(m, opts);

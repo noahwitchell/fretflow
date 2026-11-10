@@ -4,7 +4,7 @@ import * as T from '../theory.js';
 import * as C from '../color.js';
 import * as A from '../audio.js';
 import { data, save, logNote, unlocked, levelProgress, colourFor, UNLOCK_ORDER } from './log.js';
-import { ring, seg, pct } from './ui.js';
+import { ring, seg, pct, PLAIN } from './ui.js';
 
 let el, mystery = null, answered = false, t0 = 0, streak = 0, sess = { n: 0, ok: 0 }, last = null, busy = false;
 const RANGES = { '4': [4, 4], '3-5': [3, 5], '2-6': [2, 6] };
@@ -70,7 +70,7 @@ function paint(correct = null, wrong = null) {
   const items = [...Array(12).keys()].map(pc => {
     const p = data.per[pc];
     return {
-      k: pc, label: T.noteName(pc), color: C.noteColor(pc), disabled: !allowed.has(pc),
+      k: pc, label: T.noteName(pc), color: pc === correct ? C.noteColor(pc) : PLAIN, disabled: !allowed.has(pc), // plain until answered: no colour-matching shortcut
       sub: p && p.n ? pct(p.ok, p.n) : '',
       cls: `${pc === correct ? 'correct' : ''} ${pc === wrong ? 'wrong' : ''}`,
       slot: C.wheelPos(pc),

@@ -11,18 +11,18 @@ Plain HTML + JS modules, no build step, no dependencies, works offline once inst
 
 | Tab | Idea |
 | --- | --- |
-| **Clock** | The notes on the colour wheel. A chord is a shape (major = the same triangle in every key, minor its mirror) and gets a colour-theory name: triad, complementary, analogous, split complementary… |
-| **Wheel** | Circle of fifths. The key lights up as a wedge of 7 chords; the wheel turns to put the key on top. |
-| **Grid** | Tonnetz: triangles are chords, edge-sharing chords share 2 notes; P/R/L mark one-note moves; progressions draw a path. |
-| **Neck** | Chord tones over 15 frets, the rest of the key as small dots. |
+| **Clock** | Chord builder on the colour wheel: tap notes one at a time (each plays alone), the shape grows and the chord is named, plus its colour-theory name (triad, complementary, analogous…). Tap the middle to hear them together. |
+| **Wheel** | Circle of fifths. Drag to turn it: the 7 chords in the lit wedge at the top are the key. Gold outlines = chords sharing 2 notes with the selected one; the middle flips major ⇄ relative minor. |
+| **Grid** | Tonnetz centred on your chord: each note appears once, repeats are faded ghosts. P/R/L neighbours share 2 notes; tap one to step there. |
 
+Tapping a chord plays its notes one by one, then together (Settings → *Tapping a chord plays*).
 Settings (tap the key): key, note names vs degrees, colour flash/hold/off, and the colour
 map. **Chromatic** (C red → B rose) or **By fifths**, where colour harmony lines up with musical
 harmony: neighbouring colours are a 5th apart, a key is one unbroken sweep, opposite = tritone.
 
 ## Ear training (Ear tab)
 
-- **Notes**: name the note. *Grow* starts with 3 far-apart notes and unlocks the next at 90% over 20 answers.
+- **Notes**: name the note. Answer buttons are plain grey (no colour-matching shortcut); the right one lights up after you answer. *Grow* starts with 3 far-apart notes and unlocks the next at 90% over 20 answers.
   Options: octave range, timbre (guitar / piano / pure / mix), noise between notes (stops you
   working it out from the last note), colour on / *fade as I learn* / off. Answer time is shown; real pitch memory is instant.
 - **Degrees**: a I–IV–V–I sets the key, a note plays, name its degree (1–7 or all 12, with solfège), then it resolves home.

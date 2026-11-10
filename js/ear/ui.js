@@ -13,4 +13,5 @@ export function seg(name, opts, cur) {
     `<button class="${String(v) === String(cur) ? 'on' : ''}" data-v="${v}">${l}</button>`).join('')}</div>`;
 }
 
+export const PLAIN = 'hsla(222, 14%, 24%, 1)';
 export const pct = (ok, n) => (n ? Math.round((ok / n) * 100) + '%' : '–');

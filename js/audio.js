@@ -15,19 +15,44 @@ function impulse(sec) {
   return b;
 }
 
+function build() {
+  ctx = new (window.AudioContext || window.webkitAudioContext)();
+  const comp = ctx.createDynamicsCompressor();
+  comp.threshold.value = -16; comp.ratio.value = 4; comp.attack.value = 0.004;
+  out = ctx.createGain(); out.gain.value = 0.9;
+  out.connect(comp); comp.connect(ctx.destination);
+  const verb = ctx.createConvolver(); verb.buffer = impulse(2.4);
+  wet = ctx.createGain(); wet.gain.value = 0.2;
+  wet.connect(verb); verb.connect(comp);
+  voices.clear();
+}
+
 export function audio() {
-  if (!ctx) {
-    ctx = new (window.AudioContext || window.webkitAudioContext)();
-    const comp = ctx.createDynamicsCompressor();
-    comp.threshold.value = -16; comp.ratio.value = 4; comp.attack.value = 0.004;
-    out = ctx.createGain(); out.gain.value = 0.9;
-    out.connect(comp); comp.connect(ctx.destination);
-    const verb = ctx.createConvolver(); verb.buffer = impulse(2.4);
-    wet = ctx.createGain(); wet.gain.value = 0.2;
-    wet.connect(verb); verb.connect(comp);
-  }
-  if (ctx.state === 'suspended') ctx.resume();
+  if (!ctx || ctx.state === 'closed') build();
+  if (ctx.state !== 'running') ctx.resume().catch(() => {});
   return ctx;
+}
+
+// iPhone suspends ("interrupts") web audio when the screen locks, and sometimes never lets it
+// resume. On every touch and whenever the app comes back, try to resume; if it's still dead a
+// moment later, throw the old context away and build a fresh one.
+let reviving = false;
+export function revive() {
+  // play through the ringer/silent switch like a music app (Safari 17+)
+  try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch {}
+  if (!ctx || reviving) return;
+  if (ctx.state === 'running') return;
+  reviving = true;
+  ctx.resume().catch(() => {});
+  setTimeout(() => {
+    reviving = false;
+    if (ctx && ctx.state !== 'running') {
+      try { ctx.close(); } catch {}
+      ctx = null;
+      build();
+      ctx.resume().catch(() => {});
+    }
+  }, 250);
 }
 
 export const TIMBRES = ['guitar', 'piano', 'sine'];
