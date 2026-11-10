@@ -368,7 +368,8 @@ body.moves-mode #inspector { display: none; }
 
 /* grid: multi-octave builder */
 #view-grid { overflow-y: auto; gap: 6px; padding-top: 4px; }
-.goctave { display: flex; align-items: center; justify-content: flex-end; gap: 6px; font-size: 12px; color: var(--dim); }
+.goctave { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--dim); flex: none; }
+.goctave .sp { flex: 1; }
 .ggrid { display: grid; grid-template-columns: 14px repeat(12, minmax(0, 1fr)); gap: 2px; flex: none; width: 100%; }
 .goct { font-size: 10px; color: var(--dim); display: flex; align-items: center; justify-content: center; font-weight: 700; }
 .gcell { height: 54px; min-width: 0; border: 1px solid var(--line); border-radius: 7px; padding: 0; font-size: 10px; font-weight: 700; color: rgba(255,255,255,0.75); background: rgba(255,255,255,0.05); position: relative; overflow: hidden; }
@@ -388,3 +389,18 @@ body.moves-mode #inspector { display: none; }
 .sgap { flex: none; display: flex; flex-direction: column; align-items: center; font-weight: 800; font-size: 13px; color: var(--accent); padding: 0 3px; line-height: 1.1; }
 .sgap small { font-size: 8.5px; color: var(--dim); font-weight: 600; white-space: nowrap; }
 .gacts { display: flex; gap: 6px; flex-wrap: wrap; }
+
+/* grid: tall layout (phones) — one column per octave, big buttons */
+.ggrid.tall { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 3px 5px; }
+.ggrid.tall .goct { font-size: 11px; padding-bottom: 2px; }
+.ggrid.tall .gcell { height: var(--rowh, 40px); font-size: 15px; border-radius: 9px; display: flex; align-items: center; justify-content: center; gap: 2px; }
+.ggrid.tall .gcell small { font-size: 10px; opacity: 0.6; font-weight: 600; }
+.ggrid.tall .gcell::after { left: 8px; right: auto; top: 10px; bottom: 10px; width: 4px; height: auto; }
+.ggrid.tall .gcell.echo::before { top: 50%; left: auto; right: 8px; margin: -3px 0 0; }
+.ggrid.tall .gcell.blk { margin: 0 8px; }
+.ginfo .gname { font-size: 24px; }
+.ginfo .gstack { margin: 6px 0; }
+
+.ginfo { padding: 8px 10px; }
+.ginfo .gacts .btn { padding: 6px 10px; font-size: 13px; }
+.ginfo .gsub { font-size: 12px; }

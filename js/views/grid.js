@@ -8,6 +8,9 @@ import * as A from '../audio.js';
 import { selectChord, playMidi, addToProg } from '../actions.js';
 
 let el, notes = [], lowOct = 2, synced = '';
+// 'tall' = one column per octave (big buttons on a phone), 'wide' = one row per octave
+let layout = (() => { try { return localStorage.getItem('fretflow.gridLayout') || 'auto'; } catch { return 'auto'; } })();
+const isTall = () => layout === 'tall' || (layout === 'auto' && el.clientWidth < 600);
 const ROWS = 4;
 const ck = c => `${c.root}:${c.type}`;
 
@@ -40,17 +43,31 @@ function render() {
   const flats = T.usesFlats(state.key);
   const on = new Set(notes);
   const pcsOn = new Set(notes.map(T.mod12));
+  const cell = (m, label) => {
+    const pc = T.mod12(m);
+    const sel = on.has(m), echo = !sel && pcsOn.has(pc);
+    const black = [1, 3, 6, 8, 10].includes(pc);
+    return `<button class="gcell ${sel ? 'on' : ''} ${echo ? 'echo' : ''} ${black ? 'blk' : ''}" data-m="${m}" style="--c:${C.midiColor(m)}">${label}</button>`;
+  };
   let cells = '';
-  for (let r = ROWS - 1; r >= 0; r--) {
-    const oct = lowOct + r;
-    cells += `<span class="goct">${oct}</span>`;
-    for (let pc = 0; pc < 12; pc++) {
-      const m = (oct + 1) * 12 + pc;
-      const sel = on.has(m), echo = !sel && pcsOn.has(pc);
-      const black = [1, 3, 6, 8, 10].includes(pc);
-      cells += `<button class="gcell ${sel ? 'on' : ''} ${echo ? 'echo' : ''} ${black ? 'blk' : ''}" data-m="${m}" style="--c:${C.midiColor(m)}">${T.noteName(pc, flats)}</button>`;
+  const tall = isTall();
+  if (tall) {
+    // columns = octaves (low → high), rows = notes with B on top: a little upright keyboard per octave
+    for (let r = 0; r < ROWS; r++) cells += `<span class="goct">Oct ${lowOct + r}</span>`;
+    for (let pc = 11; pc >= 0; pc--) for (let r = 0; r < ROWS; r++) {
+      const m = (lowOct + r + 1) * 12 + pc;
+      cells += cell(m, `${T.noteName(pc, flats)}<small>${lowOct + r}</small>`);
+    }
+  } else {
+    for (let r = ROWS - 1; r >= 0; r--) {
+      const oct = lowOct + r;
+      cells += `<span class="goct">${oct}</span>`;
+      for (let pc = 0; pc < 12; pc++) cells += cell((oct + 1) * 12 + pc, T.noteName(pc, flats));
     }
   }
+  const g = el.querySelector('.ggrid');
+  g.classList.toggle('tall', tall);
+  requestAnimationFrame(fitRows);
   el.querySelector('.ggrid').innerHTML = cells;
 
   const a = analyse();
@@ -83,8 +100,17 @@ function render() {
       <button class="btn ghost" data-g="clear">Clear</button>
       ${a && a.chord ? '<button class="btn primary" data-g="add">+ Add</button>' : ''}
     </div>`;
-  el.querySelector('.goctave').innerHTML = `Octaves ${lowOct}–${lowOct + ROWS - 1}
+  el.querySelector('.goctave').innerHTML = `<button class="btn small ghost" data-g="layout">${tall ? '⇆ Wide layout' : '⇅ Tall layout'}</button><span class="sp"></span>Octaves ${lowOct}–${lowOct + ROWS - 1}
     <button class="btn small" data-g="octdn" ${lowOct <= 1 ? 'disabled' : ''}>▼</button><button class="btn small" data-g="octup" ${lowOct >= 4 ? 'disabled' : ''}>▲</button>`;
+}
+
+// In the tall layout, size the 12 rows to fill whatever height is left (no scrolling to reach low C).
+function fitRows() {
+  const g = el.querySelector('.ggrid');
+  if (!g.classList.contains('tall')) { g.style.removeProperty('--rowh'); return; }
+  const used = el.querySelector('.ginfo').offsetHeight + el.querySelector('.goctave').offsetHeight + 24 + 22;
+  const h = Math.floor((el.clientHeight - used) / 12) - 3;
+  g.style.setProperty('--rowh', `${Math.max(30, Math.min(52, h))}px`);
 }
 
 function changed() {
@@ -106,7 +132,9 @@ export default {
   id: 'grid',
   mount(root) {
     el = root;
-    el.innerHTML = `<div class="goctave"></div><div class="ggrid"></div><div class="ginfo"></div>`;
+    el.innerHTML = `<div class="ginfo"></div><div class="goctave"></div><div class="ggrid"></div>`;
+    let lastTall = null;
+    new ResizeObserver(() => { const t = isTall(); if (t !== lastTall && el.classList.contains('active')) { lastTall = t; render(); } }).observe(el);
     el.addEventListener('click', e => {
       const cell = e.target.closest('.gcell');
       if (cell) {
@@ -121,6 +149,11 @@ export default {
       if (g === 'play') hear();
       if (g === 'clear') { notes = []; render(); }
       if (g === 'add') addToProg(state.chord);
+      if (g === 'layout') {
+        layout = isTall() ? 'wide' : 'tall';
+        try { localStorage.setItem('fretflow.gridLayout', layout); } catch {}
+        render(); return;
+      }
       if (g === 'octdn') { lowOct = Math.max(1, lowOct - 1); render(); }
       if (g === 'octup') { lowOct = Math.min(4, lowOct + 1); render(); }
       if (g === 'up' && s.length > 1) {

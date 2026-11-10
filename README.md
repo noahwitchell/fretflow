@@ -16,7 +16,7 @@ Every tab has a **?** guide (shown automatically the first time).
 | **Clock** | Chord builder on the colour wheel: tap notes one at a time (each plays alone), the shape grows and the chord is named, plus its colour-theory name (triad, complementary, analogous…). Tap the middle to hear them together. |
 | **Wheel** | Circle of fifths. Drag to turn it: the lit wedge at the top is the key's chord family. A strip below shows the key's 7 notes and its 7 chords (with roles: home, away, tension…); a banner names the one note that changes when you turn to the next key. |
 | **Moves** | Your chord on the 12-note ring above a fixed palette (the key's 7 chords + 6 common borrowed ones). Each button shows ● per note shared with where you are and which notes would move; tapping slides those notes on the ring and in sound. Your path becomes a progression. |
-| **Grid** | Every note across 4 octaves (rows = octaves). Tap exact pitches to build chords anywhere; it names the inversion (C/E = 1st inversion) and shows the interval between each stacked note. Invert ↑/↓ moves the bottom/top note an octave. |
+| **Grid** | Every note across 4 octaves (rows = octaves). Tap exact pitches to build chords anywhere; it names the inversion (C/E = 1st inversion) and shows the interval between each stacked note. Invert ↑/↓ moves the bottom/top note an octave. On phones it stands upright (one column per octave, B on top) for big buttons; ⇆ switches layouts. |
 
 Tapping a chord plays its notes one by one, then together (Settings → *Tapping a chord plays*).
 Settings (tap the key): key, note names vs degrees, colour flash/hold/off, and the colour
