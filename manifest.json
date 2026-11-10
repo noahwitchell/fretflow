@@ -1,0 +1,12 @@
+{
+  "name": "FretFlow",
+  "short_name": "FretFlow",
+  "description": "See how chords are built and how they move. Ear and pitch training with note colours.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#0b0d12",
+  "theme_color": "#0b0d12",
+  "orientation": "any",
+  "icons": [{ "src": "icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }]
+}

@@ -1,0 +1,1502 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="FretFlow" />
+  <meta name="theme-color" content="#0f172a" />
+  <link rel="manifest" href="./manifest.json" />
+  <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='112' fill='%230f172a'/%3E%3Ccircle cx='256' cy='256' r='170' fill='none' stroke='%23f59e0b' stroke-width='20'/%3E%3Ccircle cx='256' cy='256' r='34' fill='%23f59e0b'/%3E%3Ccircle cx='203' cy='190' r='26' fill='%2310b981'/%3E%3Ccircle cx='309' cy='320' r='26' fill='%23a855f7'/%3E%3C/svg%3E" />
+  <title>FretFlow — Chord Anatomy & Synesthesia Ear Studio</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --card: rgba(30, 41, 59, 0.84);
+      --card-alt: rgba(51, 65, 85, 0.88);
+      --border: rgba(148, 163, 184, 0.24);
+      --text: #f8fafc;
+      --muted: #cbd5e1;
+      --root-color: #f59e0b;   /* Amber: Root (1) */
+      --third-color: #10b981;  /* Emerald: 3rd / Sus (3 / b3 / 2 / 4) */
+      --fifth-color: #a855f7;  /* Purple: 5th (5 / b5 / #5) */
+      --seventh-color: #f43f5e;/* Rose: 6th / 7th (6 / bb7 / b7 / 7) */
+      --ext-color: #a3e635;    /* Lime: Extensions (9 / b9 / #9) */
+      --primary: #f59e0b;
+    }
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+    body {
+      margin: 0;
+      padding: 0;
+      min-height: 100vh;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      padding-top: env(safe-area-inset-top, 10px);
+      padding-bottom: calc(82px + env(safe-area-inset-bottom, 12px));
+      user-select: none;
+      -webkit-user-select: none;
+      transition: background-color 0.14s ease-out;
+      position: relative;
+    }
+    /* Full-Screen Synesthesia Color Wash Overlay */
+    #synesthesiaWash {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 0;
+      opacity: 0;
+      transition: opacity 0.14s ease-out, background 0.14s ease-out;
+    }
+    header {
+      padding: 10px 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      flex-wrap: wrap;
+      border-bottom: 1px solid var(--border);
+      background: rgba(15, 23, 42, 0.88);
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      backdrop-filter: blur(10px);
+    }
+    .app-title {
+      font-size: 16px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+    }
+    .header-controls {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .syn-live-pill {
+      font-size: 12px;
+      padding: 5px 10px;
+      border-radius: 999px;
+      background: rgba(15, 23, 42, 0.9);
+      border: 1.5px solid var(--border);
+      color: var(--text);
+      font-weight: 700;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.15s ease;
+    }
+    .syn-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #64748b;
+      display: inline-block;
+      box-shadow: 0 0 6px rgba(255,255,255,0.3);
+    }
+    .badge {
+      font-size: 12px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      background: rgba(15, 23, 42, 0.75);
+      border: 1px solid var(--border);
+      color: var(--muted);
+      font-weight: 600;
+    }
+    main {
+      padding: 12px;
+      max-width: 820px;
+      margin: 0 auto;
+      position: relative;
+      z-index: 2;
+    }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 14px;
+      margin-bottom: 12px;
+      backdrop-filter: blur(10px);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.22);
+    }
+    .card-title {
+      font-size: 15px;
+      font-weight: 600;
+      margin: 0 0 6px 0;
+    }
+    .subtext {
+      font-size: 13px;
+      color: var(--muted);
+      margin: 0 0 10px 0;
+      line-height: 1.45;
+    }
+    .controls-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+    @media (max-width: 520px) {
+      .controls-row {
+        grid-template-columns: 1fr;
+      }
+    }
+    label.field-label {
+      display: block;
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 6px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+    select, button {
+      font-family: inherit;
+      font-size: 14px;
+    }
+    select {
+      width: 100%;
+      padding: 9px 10px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: rgba(15, 23, 42, 0.9);
+      color: var(--text);
+      font-weight: 600;
+    }
+    .btn {
+      padding: 10px 14px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: var(--card-alt);
+      color: var(--text);
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: transform 0.08s ease, background 0.15s ease, border-color 0.15s ease;
+    }
+    .btn:active {
+      transform: scale(0.96);
+    }
+    .btn:disabled {
+      opacity: 0.4;
+      pointer-events: none;
+    }
+    .btn-primary {
+      background: var(--primary);
+      color: #000;
+      border-color: var(--primary);
+      font-weight: 700;
+    }
+    .btn-active-green {
+      background: var(--third-color);
+      color: #000;
+      border-color: var(--third-color);
+    }
+    .status-bar {
+      margin-top: 10px;
+      padding: 10px 12px;
+      border-radius: 10px;
+      background: rgba(15, 23, 42, 0.85);
+      border: 1px solid var(--border);
+      font-size: 13px;
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    /* Chromatic Synesthesia Color Wheel Strip */
+    .color-wheel-strip {
+      display: grid;
+      grid-template-columns: repeat(12, 1fr);
+      gap: 4px;
+      margin: 8px 0 10px;
+    }
+    .cw-cell {
+      padding: 6px 2px;
+      border-radius: 7px;
+      text-align: center;
+      font-size: 11px;
+      font-weight: 800;
+      color: #fff;
+      text-shadow: 0 1px 3px rgba(0,0,0,0.85);
+      cursor: pointer;
+      border: 1.5px solid rgba(255,255,255,0.22);
+      transition: transform 0.1s ease, box-shadow 0.15s ease;
+    }
+    .cw-cell:active {
+      transform: scale(0.92);
+    }
+    .cw-cell.active-pulse {
+      transform: scale(1.08);
+      border-color: #fff;
+      box-shadow: 0 0 12px rgba(255,255,255,0.8);
+    }
+    /* Root Key Button Grid (12 Notes) */
+    .root-grid {
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      gap: 7px;
+      margin-bottom: 12px;
+    }
+    @media (min-width: 560px) {
+      .root-grid {
+        grid-template-columns: repeat(12, 1fr);
+      }
+    }
+    .root-btn {
+      padding: 11px 4px;
+      border-radius: 10px;
+      border: 1.5px solid var(--border);
+      background: rgba(15, 23, 42, 0.88);
+      color: var(--text);
+      font-weight: 700;
+      font-size: 14px;
+      cursor: pointer;
+      text-align: center;
+      transition: all 0.12s ease;
+    }
+    .root-btn.sharp {
+      background: rgba(19, 28, 49, 0.92);
+      color: #cbd5e1;
+    }
+    .root-btn.active {
+      background: var(--root-color);
+      color: #000;
+      border-color: var(--root-color);
+      box-shadow: 0 0 10px rgba(245, 158, 11, 0.4);
+    }
+    /* Chord Type Button Grid */
+    .chord-type-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 7px;
+      margin-bottom: 12px;
+    }
+    @media (min-width: 560px) {
+      .chord-type-grid {
+        grid-template-columns: repeat(5, 1fr);
+      }
+    }
+    .chord-type-btn {
+      padding: 9px 6px;
+      border-radius: 10px;
+      border: 1.5px solid var(--border);
+      background: rgba(15, 23, 42, 0.88);
+      color: var(--text);
+      font-weight: 700;
+      font-size: 13px;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2px;
+      transition: all 0.12s ease;
+    }
+    .chord-type-btn span {
+      font-size: 11px;
+      color: var(--muted);
+      font-weight: 500;
+    }
+    .chord-type-btn.active {
+      border-color: var(--root-color);
+      background: rgba(245, 158, 11, 0.22);
+      color: var(--root-color);
+    }
+    .chord-type-btn.active span {
+      color: var(--text);
+    }
+    /* Chord Anatomy Box */
+    .anatomy-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      margin: 12px 0 6px;
+    }
+    .anatomy-pill {
+      background: rgba(15, 23, 42, 0.88);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px 6px;
+      text-align: center;
+      cursor: pointer;
+      transition: transform 0.08s ease, background 0.15s ease;
+    }
+    .anatomy-pill:active {
+      transform: scale(0.95);
+      background: rgba(255, 255, 255, 0.08);
+    }
+    .anatomy-role {
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 4px;
+      font-weight: 600;
+    }
+    .anatomy-note {
+      font-size: 19px;
+      font-weight: 800;
+    }
+    .anatomy-tap-hint {
+      font-size: 11px;
+      color: var(--muted);
+      margin-top: 3px;
+      opacity: 0.8;
+    }
+    /* Octave Selector Bars */
+    .octave-tabs {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      margin: 8px 0 10px;
+      background: rgba(15, 23, 42, 0.88);
+      padding: 6px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      flex-wrap: wrap;
+    }
+    .oct-tab {
+      flex: 1;
+      min-width: 44px;
+      padding: 7px 3px;
+      border-radius: 8px;
+      border: 1px solid transparent;
+      background: transparent;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      text-align: center;
+    }
+    .oct-tab.active {
+      background: var(--card-alt);
+      color: var(--root-color);
+      border-color: var(--root-color);
+    }
+    /* Note Guess & Free-Play Grids */
+    .guess-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+      margin: 8px 0;
+    }
+    .guess-btn {
+      padding: 11px 6px;
+      border-radius: 10px;
+      border: 1.5px solid var(--border);
+      background: rgba(15, 23, 42, 0.9);
+      color: var(--text);
+      font-weight: 700;
+      font-size: 15px;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 3px;
+      position: relative;
+      overflow: hidden;
+      transition: transform 0.08s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+    }
+    .guess-btn span {
+      font-size: 11px;
+      color: var(--muted);
+      font-weight: 500;
+    }
+    .guess-btn .note-color-chip {
+      font-size: 10px;
+      padding: 2px 7px;
+      border-radius: 999px;
+      font-weight: 700;
+      color: #fff;
+      text-shadow: 0 1px 2px rgba(0,0,0,0.8);
+      margin-top: 2px;
+    }
+    .guess-btn:active {
+      transform: scale(0.95);
+    }
+    /* Bottom Nav (2 Tabs) */
+    nav.bottom-nav {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: rgba(15, 23, 42, 0.94);
+      border-top: 1px solid var(--border);
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      padding-bottom: env(safe-area-inset-bottom, 8px);
+      z-index: 30;
+      backdrop-filter: blur(10px);
+    }
+    .nav-btn {
+      background: none;
+      border: none;
+      color: var(--muted);
+      padding: 10px 4px;
+      font-size: 13px;
+      font-weight: 700;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 3px;
+      cursor: pointer;
+    }
+    .nav-btn.active {
+      color: var(--root-color);
+    }
+    .hidden {
+      display: none !important;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Full-Screen Synesthesia Color Wash Overlay -->
+  <div id="synesthesiaWash"></div>
+
+  <header>
+    <div class="app-title">
+      <span>🌈 FretFlow Studio</span>
+    </div>
+    <div class="header-controls">
+      <div id="synLiveBadge" class="syn-live-pill" title="Active Note Synesthesia Color">
+        <span id="synLiveDot" class="syn-dot"></span>
+        <span id="synLiveText">Play a note for color</span>
+      </div>
+      <button id="droneBtn" class="btn" onclick="toggleDrone()" style="padding: 6px 11px; font-size: 12px;">
+        🔊 Root Drone
+      </button>
+    </div>
+  </header>
+
+  <main>
+    <!-- SYNESTHESIA COLOR WHEEL BAR (VISIBLE ACROSS BOTH TABS OR TOGGLEABLE) -->
+    <div class="card" style="padding: 11px 14px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+        <div>
+          <span style="font-size:13px; font-weight:700;">🌈 Chromesthesia (Pitch ↔ Color Wheel)</span>
+          <span style="font-size:12px; color:var(--muted); margin-left:6px;">C starts at Red (0°) → cycles 360° → Octaves 1–6 shift dark to bright</span>
+        </div>
+        <select id="synesthesiaModeSelect" onchange="onSynModeChange()" style="width:auto; padding:5px 9px; font-size:12px;">
+          <option value="all" selected>🌈 Flash on All Notes (Train Association)</option>
+          <option value="reveal">🎯 Blind Mystery Note (Flash on Guess & Free-Play)</option>
+          <option value="hold">🔒 Hold Last Note Color on Screen</option>
+          <option value="off">⬛ Color Flash Off</option>
+        </select>
+      </div>
+      <!-- 12-Note Color Wheel Reference Strip (Tap any swatch to hear it in Octave 4) -->
+      <div id="colorWheelStrip" class="color-wheel-strip"></div>
+    </div>
+
+    <!-- TAB 1: CHORD ANATOMY & SINGLE-CHORD EXPLORER -->
+    <section id="viewChords">
+      <!-- CHORD ANATOMY CARD (TOP & CENTER) -->
+      <div class="card">
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:6px;">
+          <div>
+            <h3 id="anatomyTitle" class="card-title" style="margin:0; font-size:18px;">🔍 A Minor (Octave 3)</h3>
+            <span id="anatomyFormulaBadge" class="badge" style="color:var(--root-color); display:inline-block; margin-top:4px;">Formula: 1 – b3 – 5</span>
+          </div>
+          <div style="display:flex; gap:8px;">
+            <button class="btn btn-primary" onclick="strumExplorerChord(90)">
+              ▶ Play Arpeggio
+            </button>
+            <button class="btn" onclick="strumExplorerChord(0)">
+              🎹 Play Block
+            </button>
+          </div>
+        </div>
+
+        <p id="anatomyDiffText" class="subtext" style="margin-top:6px; margin-bottom:10px;"></p>
+
+        <label class="field-label">Individual Chord Tones (Tap Any Note Button to Hear & See Its Synesthesia Color):</label>
+        <div id="anatomyPills" class="anatomy-grid"></div>
+      </div>
+
+      <!-- SINGLE CHORD EXPLORER (ALL BUTTONS: KEY, OCTAVE, CHORD TYPE) -->
+      <div class="card">
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:8px;">
+          <h3 class="card-title" style="margin:0;">🎛️ Chord Builder & Octave Explorer</h3>
+          <label style="font-size:12px; color:var(--muted); display:flex; align-items:center; gap:5px; cursor:pointer;">
+            <input type="checkbox" id="autoPlayChordToggle" checked />
+            Auto-Play on Button Tap
+          </label>
+        </div>
+
+        <!-- 1. Root Key Buttons (12 Notes) -->
+        <label class="field-label">1. Select Root Note (Key):</label>
+        <div id="explorerRootGrid" class="root-grid"></div>
+
+        <!-- 2. Chord Octave Switcher -->
+        <label class="field-label">2. Select Chord Octave (Darker Low Shades → Brighter High Shades):</label>
+        <div class="octave-tabs">
+          <button class="btn" style="padding:6px 10px; font-size:12px;" onclick="shiftChordOctave(-1)">◀ Down</button>
+          <button id="chordOctBtn1" class="oct-tab" onclick="setChordOctave(1)">Oct 1<br/><span style="font-size:11px; opacity:0.75;">Deep Dark</span></button>
+          <button id="chordOctBtn2" class="oct-tab" onclick="setChordOctave(2)">Oct 2<br/><span style="font-size:11px; opacity:0.75;">Low Shade</span></button>
+          <button id="chordOctBtn3" class="oct-tab active" onclick="setChordOctave(3)">Oct 3<br/><span style="font-size:11px; opacity:0.75;">Mid Shade</span></button>
+          <button id="chordOctBtn4" class="oct-tab" onclick="setChordOctave(4)">Oct 4<br/><span style="font-size:11px; opacity:0.75;">Vivid (C4)</span></button>
+          <button id="chordOctBtn5" class="oct-tab" onclick="setChordOctave(5)">Oct 5<br/><span style="font-size:11px; opacity:0.75;">Bright</span></button>
+          <button id="chordOctBtn6" class="oct-tab" onclick="setChordOctave(6)">Oct 6<br/><span style="font-size:11px; opacity:0.75;">Luminous</span></button>
+          <button class="btn" style="padding:6px 10px; font-size:12px;" onclick="shiftChordOctave(1)">Up ▶</button>
+        </div>
+
+        <!-- 3. Chord Type Buttons (23 Varieties) -->
+        <label class="field-label">3. Select Chord Type:</label>
+        <div id="explorerTypeGrid" class="chord-type-grid"></div>
+      </div>
+    </section>
+
+    <!-- TAB 2: MULTI-OCTAVE EAR TRAINER & FREE-PLAY NOTE EXPLORER -->
+    <section id="viewEar" class="hidden">
+      <!-- PANEL 1: MULTI-OCTAVE EAR TRAINER (LISTEN -> GUESS) -->
+      <div class="card">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+          <h3 class="card-title" style="margin:0;">1. Multi-Octave Ear Trainer (Listen → Identify)</h3>
+          <span id="earScoreBadge" class="badge">Streak: 0 | 0/0</span>
+        </div>
+        <p class="subtext">
+          Hear a mystery note, feel its pitch & synesthesia color association, compare it to your <strong>C4 Anchor (Red)</strong>, and pick the exact note & octave.
+        </p>
+
+        <div class="controls-row">
+          <div>
+            <label class="field-label">Mystery Note Octave Range</label>
+            <select id="earOctaveRange" onchange="onEarRangeChange()">
+              <optgroup label="Single Octave Focus (Oct 1 – Oct 6)">
+                <option value="oct1">Deep Bass Only: Octave 1 (C1–B1)</option>
+                <option value="oct2">Low Only: Octave 2 (C2–B2)</option>
+                <option value="oct3">Mid-Low Only: Octave 3 (C3–B3)</option>
+                <option value="oct4">Anchor Only: Octave 4 (C4–B4)</option>
+                <option value="oct5">High Only: Octave 5 (C5–B5)</option>
+                <option value="oct6">Very High Only: Octave 6 (C6–B6)</option>
+              </optgroup>
+              <optgroup label="2-Octave Focus (Low / Mid / High)">
+                <option value="low12">Lowest 2 Octaves: Oct 1 & 2 (C1–B2)</option>
+                <option value="low2">Low-Mid 2 Octaves: Oct 2 & 3 (C2–B3)</option>
+                <option value="mid2">Middle 2 Octaves: Oct 3 & 4 (C3–B4)</option>
+                <option value="high2">High-Mid 2 Octaves: Oct 4 & 5 (C4–B5)</option>
+                <option value="high56">Highest 2 Octaves: Oct 5 & 6 (C5–B6)</option>
+              </optgroup>
+              <optgroup label="Wide / Full Range">
+                <option value="low3">Lower 3 Octaves: Oct 1–3 (C1–B3)</option>
+                <option value="full4" selected>Core 4 Octaves: Oct 2–5 (C2–B5)</option>
+                <option value="high3">Upper 3 Octaves: Oct 4–6 (C4–B6)</option>
+                <option value="full6">All 6 Octaves: Oct 1–6 (C1–B6)</option>
+              </optgroup>
+            </select>
+          </div>
+          <div>
+            <label class="field-label">Note Pool</label>
+            <select id="earNotePool" onchange="renderGuessButtons()">
+              <option value="diatonic" selected>C Major (7 White Keys)</option>
+              <option value="pentatonic">C Major Pentatonic (5 Notes)</option>
+              <option value="chromatic">All 12 Chromatic Notes</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Grouped Left: C4 Anchor + Play | Separated Right: New Note + Fold to C4 -->
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap; margin-bottom:10px;">
+          <div style="display:flex; gap:8px; flex-wrap:wrap;">
+            <button class="btn" onclick="playMidiNote(60, 1.0, 0.28, 'anchor')">🎵 C4 Anchor (Red)</button>
+            <button id="replayEarBtn" class="btn btn-primary" onclick="replayMystery()">▶ Play</button>
+          </div>
+          <div style="display:flex; gap:8px; flex-wrap:wrap;">
+            <button class="btn" onclick="newEarQuestion()">🔄 New Note</button>
+            <button id="foldEarBtn" class="btn" onclick="playFoldedC4()" disabled title="Hear mystery note folded into the C4 octave">🎯 Fold to C4</button>
+          </div>
+        </div>
+
+        <!-- Octave Up / Down Selector Bar (Oct 1 to Oct 6) -->
+        <div class="octave-tabs">
+          <button class="btn" style="padding:6px 8px; font-size:12px;" onclick="shiftGuessOctave(-1)">◀</button>
+          <button id="octBtn1" class="oct-tab" onclick="setGuessOctave(1)">Oct 1<br/><span style="font-size:11px; opacity:0.75;">Deep Dark</span></button>
+          <button id="octBtn2" class="oct-tab" onclick="setGuessOctave(2)">Oct 2<br/><span style="font-size:11px; opacity:0.75;">Low Shade</span></button>
+          <button id="octBtn3" class="oct-tab" onclick="setGuessOctave(3)">Oct 3<br/><span style="font-size:11px; opacity:0.75;">Mid Shade</span></button>
+          <button id="octBtn4" class="oct-tab active" onclick="setGuessOctave(4)">Oct 4<br/><span style="font-size:11px; opacity:0.75;">Vivid (C4)</span></button>
+          <button id="octBtn5" class="oct-tab" onclick="setGuessOctave(5)">Oct 5<br/><span style="font-size:11px; opacity:0.75;">Bright</span></button>
+          <button id="octBtn6" class="oct-tab" onclick="setGuessOctave(6)">Oct 6<br/><span style="font-size:11px; opacity:0.75;">Luminous</span></button>
+          <button class="btn" style="padding:6px 8px; font-size:12px;" onclick="shiftGuessOctave(1)">▶</button>
+        </div>
+
+        <div id="guessGrid" class="guess-grid"></div>
+
+        <div id="earFeedback" class="status-bar" style="min-height: 48px;">
+          Tap "Play" to hear the mystery note, then pick the octave & note above.
+        </div>
+      </div>
+
+      <!-- PANEL 2: REVERSE EAR TRAINER / FREE-PLAY NOTE EXPLORER (IMAGINE -> VERIFY) -->
+      <div class="card">
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:4px;">
+          <h3 class="card-title" style="margin:0;">2. Free-Play Note & Color Explorer (Imagine → Verify Pitch)</h3>
+          <span class="badge" style="color:var(--third-color);">Score-Free Sandbox</span>
+        </div>
+        <p class="subtext">
+          Practice the reverse skill: <strong>visualize the note's color & hear its pitch in your head first</strong>, then tap its button below to immerse the screen in that note's color and verify your internal pitch!
+        </p>
+
+        <!-- Free-Play Octave Switcher Bar (Oct 1 to Oct 6) -->
+        <div class="octave-tabs">
+          <button class="btn" style="padding:6px 8px; font-size:12px;" onclick="shiftFreeOctave(-1)">◀</button>
+          <button id="freeOctBtn1" class="oct-tab" onclick="setFreeOctave(1)">Oct 1<br/><span style="font-size:11px; opacity:0.75;">Deep Dark</span></button>
+          <button id="freeOctBtn2" class="oct-tab" onclick="setFreeOctave(2)">Oct 2<br/><span style="font-size:11px; opacity:0.75;">Low Shade</span></button>
+          <button id="freeOctBtn3" class="oct-tab" onclick="setFreeOctave(3)">Oct 3<br/><span style="font-size:11px; opacity:0.75;">Mid Shade</span></button>
+          <button id="freeOctBtn4" class="oct-tab active" onclick="setFreeOctave(4)">Oct 4<br/><span style="font-size:11px; opacity:0.75;">Vivid (C4)</span></button>
+          <button id="freeOctBtn5" class="oct-tab" onclick="setFreeOctave(5)">Oct 5<br/><span style="font-size:11px; opacity:0.75;">Bright</span></button>
+          <button id="freeOctBtn6" class="oct-tab" onclick="setFreeOctave(6)">Oct 6<br/><span style="font-size:11px; opacity:0.75;">Luminous</span></button>
+          <button class="btn" style="padding:6px 8px; font-size:12px;" onclick="shiftFreeOctave(1)">▶</button>
+        </div>
+
+        <div id="freePlayGrid" class="guess-grid"></div>
+
+        <div id="freePlayStatus" class="status-bar">
+          Imagine a note & its color in your head, then tap any button above to verify it!
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <nav class="bottom-nav">
+    <button id="navChords" class="nav-btn active" onclick="switchView('chords')">
+      <span>🎹</span>
+      <span>Chord Explorer</span>
+    </button>
+    <button id="navEar" class="nav-btn" onclick="switchView('ear')">
+      <span>🌈</span>
+      <span>Ear & Note Explorer</span>
+    </button>
+  </nav>
+
+  <script>
+    const NOTES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+    const DEGREES = ['1', 'b2', '2', 'b3', '3', '4', 'b5', '5', 'b6', '6', 'b7', '7'];
+
+    // 12-Note Synesthesia Color Wheel (C = 0° Red, stepping around the 360° color wheel back to C)
+    const NOTE_COLOR_WHEEL = [
+      { pc: 0,  note: 'C',  hue: 0,   sat: 88, name: 'Crimson Red' },
+      { pc: 1,  note: 'C#', hue: 28,  sat: 92, name: 'Sunset Orange' },
+      { pc: 2,  note: 'D',  hue: 54,  sat: 94, name: 'Golden Yellow' },
+      { pc: 3,  note: 'D#', hue: 88,  sat: 82, name: 'Chartreuse Lime' },
+      { pc: 4,  note: 'E',  hue: 134, sat: 82, name: 'Emerald Green' },
+      { pc: 5,  note: 'F',  hue: 168, sat: 84, name: 'Spring Mint' },
+      { pc: 6,  note: 'F#', hue: 192, sat: 90, name: 'Cyan Aqua' },
+      { pc: 7,  note: 'G',  hue: 218, sat: 90, name: 'Ocean Blue' },
+      { pc: 8,  note: 'G#', hue: 248, sat: 84, name: 'Royal Indigo' },
+      { pc: 9,  note: 'A',  hue: 276, sat: 86, name: 'Amethyst Violet' },
+      { pc: 10, note: 'A#', hue: 304, sat: 88, name: 'Electric Magenta' },
+      { pc: 11, note: 'B',  hue: 334, sat: 88, name: 'Rose Pink' }
+    ];
+
+    // Octave Lightness Mapping (Octave 1 = Deepest Dark Shade -> Octave 6 = Brightest Luminous Shade)
+    const OCTAVE_SHADE_INFO = {
+      1: { bgLight: 18, chipLight: 30, label: 'Deep Sub Shade' },
+      2: { bgLight: 26, chipLight: 38, label: 'Dark Low Shade' },
+      3: { bgLight: 35, chipLight: 46, label: 'Rich Mid-Low' },
+      4: { bgLight: 45, chipLight: 54, label: 'Pure Vivid' },
+      5: { bgLight: 56, chipLight: 64, label: 'Bright High' },
+      6: { bgLight: 67, chipLight: 74, label: 'Luminous Top' }
+    };
+
+    function getSynesthesiaColors(midi) {
+      const pc = ((midi % 12) + 12) % 12;
+      const oct = Math.max(1, Math.min(6, Math.floor(midi / 12) - 1));
+      const base = NOTE_COLOR_WHEEL[pc];
+      const shade = OCTAVE_SHADE_INFO[oct] || OCTAVE_SHADE_INFO[4];
+
+      return {
+        pc,
+        oct,
+        noteName: `${NOTES[pc]}${oct}`,
+        colorName: base.name,
+        shadeLabel: shade.label,
+        hue: base.hue,
+        sat: base.sat,
+        bgLight: shade.bgLight,
+        chipLight: shade.chipLight,
+        chipCss: `hsl(${base.hue}, ${base.sat}%, ${shade.chipLight}%)`,
+        borderCss: `hsla(${base.hue}, ${base.sat}%, ${Math.min(82, shade.chipLight + 12)}%, 0.75)`,
+        tintCss: `hsla(${base.hue}, ${base.sat}%, ${shade.chipLight}%, 0.16)`,
+        washGradient: `radial-gradient(circle at 50% 35%, hsla(${base.hue}, ${base.sat}%, ${shade.bgLight + 10}%, 0.92) 0%, hsla(${base.hue}, ${base.sat}%, ${Math.max(10, shade.bgLight - 8)}%, 0.88) 65%, rgba(15, 23, 42, 0.95) 100%)`,
+        solidBg: `hsl(${base.hue}, ${Math.round(base.sat * 0.75)}%, ${Math.max(12, shade.bgLight - 6)}%)`
+      };
+    }
+
+    let synFadeTimer = null;
+
+    function triggerSynesthesiaFlash(midi, durationSec = 1.0, source = 'general') {
+      const mode = document.getElementById('synesthesiaModeSelect').value;
+      const info = getSynesthesiaColors(midi);
+
+      // Update live header pill & highlight cell in the 12-note wheel strip
+      const liveDot = document.getElementById('synLiveDot');
+      const liveText = document.getElementById('synLiveText');
+      const liveBadge = document.getElementById('synLiveBadge');
+
+      if (mode === 'off') {
+        return;
+      }
+
+      // If user chose "Blind Mystery Note (Flash on Guess & Free-Play)", don't reveal color on mystery play
+      if (mode === 'reveal' && source === 'mystery') {
+        liveDot.style.background = '#64748b';
+        liveBadge.style.borderColor = 'var(--border)';
+        liveText.textContent = 'Mystery Note (Color Hidden Until Guess)';
+        return;
+      }
+
+      liveDot.style.background = info.chipCss;
+      liveDot.style.boxShadow = `0 0 10px ${info.chipCss}`;
+      liveBadge.style.borderColor = info.chipCss;
+      liveText.textContent = `${info.noteName} • ${info.colorName} (${info.shadeLabel})`;
+
+      // Highlight matching swatch in top strip
+      document.querySelectorAll('.cw-cell').forEach((el, idx) => {
+        el.classList.toggle('active-pulse', idx === info.pc);
+      });
+
+      const wash = document.getElementById('synesthesiaWash');
+      wash.style.background = info.washGradient;
+      wash.style.opacity = '1';
+      document.body.style.backgroundColor = info.solidBg;
+
+      if (synFadeTimer) clearTimeout(synFadeTimer);
+
+      if (mode !== 'hold') {
+        const fadeMs = Math.max(650, Math.round(durationSec * 950));
+        synFadeTimer = setTimeout(() => {
+          wash.style.opacity = '0';
+          document.body.style.backgroundColor = 'var(--bg)';
+          document.querySelectorAll('.cw-cell').forEach(el => el.classList.remove('active-pulse'));
+        }, fadeMs);
+      }
+    }
+
+    function onSynModeChange() {
+      const mode = document.getElementById('synesthesiaModeSelect').value;
+      if (mode === 'off') {
+        const wash = document.getElementById('synesthesiaWash');
+        wash.style.opacity = '0';
+        document.body.style.backgroundColor = 'var(--bg)';
+      }
+    }
+
+    function renderColorWheelStrip() {
+      const strip = document.getElementById('colorWheelStrip');
+      strip.innerHTML = NOTE_COLOR_WHEEL.map(item => {
+        const midiC4 = 60 + item.pc; // Octave 4 reference
+        const col = getSynesthesiaColors(midiC4);
+        return `
+          <div class="cw-cell"
+               style="background: ${col.chipCss};"
+               title="${item.note} — ${item.name} (Tap to hear ${item.note}4)"
+               onclick="playMidiNote(${midiC4}, 0.95, 0.28, 'strip')">
+            ${item.note}
+          </div>
+        `;
+      }).join('');
+    }
+
+    const INTERVAL_HINTS = {
+      0: 'Root / Octave (Unison with C)',
+      1: 'Minor 2nd (Jaws theme)',
+      2: 'Major 2nd (Happy Birthday)',
+      3: 'Minor 3rd (Smoke on the Water)',
+      4: 'Major 3rd (When the Saints)',
+      5: 'Perfect 4th (Here Comes the Bride)',
+      6: 'Tritone (The Simpsons)',
+      7: 'Perfect 5th (Star Wars)',
+      8: 'Minor 6th (The Entertainer)',
+      9: 'Major 6th (NBC Chimes / My Bonnie)',
+      10: 'Minor 7th (Star Trek Theme)',
+      11: 'Major 7th (1 fret below C)'
+    };
+
+    const CHORD_TYPES = {
+      maj: {
+        label: 'Major',
+        short: 'Maj',
+        formula: '1 – 3 – 5',
+        roles: { root: 0, third: 4, fifth: 7, seventh: null, ext: null },
+        roleNames: { root: '1 (Root)', third: '3 (Maj 3rd)', fifth: '5 (Perf 5th)' },
+        diff: '<strong>Baseline Major Triad (1 – 3 – 5):</strong> Built from the Root (1), Major 3rd (4 semitones up), and Perfect 5th (7 semitones up). Bright, stable, and resolved.'
+      },
+      min: {
+        label: 'Minor',
+        short: 'm',
+        formula: '1 – b3 – 5',
+        roles: { root: 0, third: 3, fifth: 7, seventh: null, ext: null },
+        roleNames: { root: '1 (Root)', third: 'b3 (Min 3rd)', fifth: '5 (Perf 5th)' },
+        diff: '<strong>What changes from Major?</strong> Only one note! The <strong>3rd drops by 1 half-step</strong> from <code>3</code> to <code>b3</code>. The Root (1) and 5th (5) stay identical.'
+      },
+      five: {
+        label: 'Power 5',
+        short: '5',
+        formula: '1 – 5',
+        roles: { root: 0, third: null, fifth: 7, seventh: null, ext: null },
+        roleNames: { root: '1 (Root)', fifth: '5 (Perf 5th)' },
+        diff: '<strong>What changes from Major/Minor?</strong> It <strong>removes the 3rd completely</strong>! Without a 3rd, a Power Chord is neither major nor minor—open, punchy, and ambiguity-free.'
+      },
+      sus2: {
+        label: 'Sus 2',
+        short: 'sus2',
+        formula: '1 – 2 – 5',
+        roles: { root: 0, third: 2, fifth: 7, seventh: null, ext: null },
+        roleNames: { root: '1 (Root)', third: '2 (Maj 2nd)', fifth: '5 (Perf 5th)' },
+        diff: '<strong>What changes from Major?</strong> The 3rd is replaced by the <strong>Major 2nd (2)</strong>—2 semitones above the Root. Creates an airy, floating sound.'
+      },
+      sus4: {
+        label: 'Sus 4',
+        short: 'sus4',
+        formula: '1 – 4 – 5',
+        roles: { root: 0, third: 5, fifth: 7, seventh: null, ext: null },
+        roleNames: { root: '1 (Root)', third: '4 (Perf 4th)', fifth: '5 (Perf 5th)' },
+        diff: '<strong>What changes from Major?</strong> The Major 3rd is raised 1 half-step to the <strong>Perfect 4th (4)</strong>, creating bright tension that wants to resolve back down to the 3rd.'
+      },
+      dim: {
+        label: 'Dim Triad',
+        short: 'dim',
+        formula: '1 – b3 – b5',
+        roles: { root: 0, third: 3, fifth: 6, seventh: null, ext: null },
+        roleNames: { root: '1 (Root)', third: 'b3 (Min 3rd)', fifth: 'b5 (Flat 5th)' },
+        diff: '<strong>What changes from Minor?</strong> Takes a Minor triad (<code>1 – b3 – 5</code>) and <strong>lowers the 5th by 1 half-step (b5 / Tritone)</strong>. Stacks two minor 3rds for dark suspense.'
+      },
+      aug: {
+        label: 'Augmented',
+        short: 'aug',
+        formula: '1 – 3 – #5',
+        roles: { root: 0, third: 4, fifth: 8, seventh: null, ext: null },
+        roleNames: { root: '1 (Root)', third: '3 (Maj 3rd)', fifth: '#5 (Sharp 5th)' },
+        diff: '<strong>What changes from Major?</strong> Takes a Major triad (<code>1 – 3 – 5</code>) and <strong>raises the 5th by 1 half-step (#5)</strong>. Stacks two Major 3rds for a dreamy, floating pull.'
+      },
+      maj6: {
+        label: 'Major 6',
+        short: '6',
+        formula: '1 – 3 – 5 – 6',
+        roles: { root: 0, third: 4, fifth: 7, seventh: 9, ext: null },
+        roleNames: { root: '1 (Root)', third: '3 (Maj 3rd)', fifth: '5 (Perf 5th)', seventh: '6 (Maj 6th)' },
+        diff: '<strong>What changes from Major?</strong> Adds the <strong>Major 6th (6)</strong>—2 semitones above the 5th. Warm, nostalgic swing/Motown/Beatles color.'
+      },
+      min6: {
+        label: 'Minor 6',
+        short: 'm6',
+        formula: '1 – b3 – 5 – 6',
+        roles: { root: 0, third: 3, fifth: 7, seventh: 9, ext: null },
+        roleNames: { root: '1 (Root)', third: 'b3 (Min 3rd)', fifth: '5 (Perf 5th)', seventh: '6 (Maj 6th)' },
+        diff: '<strong>What changes from Minor?</strong> Combines a Minor triad (<code>1 – b3 – 5</code>) with a <strong>natural Major 6th (6)</strong>. Creates a cinematic film-noir / Dorian / gypsy-jazz color.'
+      },
+      add9: {
+        label: 'Maj add9',
+        short: 'add9',
+        formula: '1 – 3 – 5 – 9',
+        roles: { root: 0, third: 4, fifth: 7, seventh: null, ext: 14 },
+        roleNames: { root: '1 (Root)', third: '3 (Maj 3rd)', fifth: '5 (Perf 5th)', ext: '9 (2nd Oct+)' },
+        diff: '<strong>What makes it "add9" vs. a "9th" chord?</strong> It keeps the pure Major triad (<code>1 – 3 – 5</code>) and adds the <strong>9th (the 2nd degree an octave up)</strong>, <em>without</em> any 7th!'
+      },
+      madd9: {
+        label: 'Min add9',
+        short: 'm(add9)',
+        formula: '1 – b3 – 5 – 9',
+        roles: { root: 0, third: 3, fifth: 7, seventh: null, ext: 14 },
+        roleNames: { root: '1 (Root)', third: 'b3 (Min 3rd)', fifth: '5 (Perf 5th)', ext: '9 (2nd Oct+)' },
+        diff: '<strong>What changes from Minor?</strong> Adds the shimmering <strong>9th (2nd degree an octave up)</strong> directly to a Minor triad (<code>1 – b3 – 5</code>) with no 7th.'
+      },
+      dom7: {
+        label: 'Dom 7',
+        short: '7',
+        formula: '1 – 3 – 5 – b7',
+        roles: { root: 0, third: 4, fifth: 7, seventh: 10, ext: null },
+        roleNames: { root: '1 (Root)', third: '3 (Maj 3rd)', fifth: '5 (Perf 5th)', seventh: 'b7 (Flat 7th)' },
+        diff: '<strong>What changes from Major?</strong> Starts with a Major triad (<code>1 – 3 – 5</code>) and adds a <strong>flat 7th (b7)</strong>—2 semitones below the Root octave. The essential blues/rock/funk driver.'
+      },
+      maj7: {
+        label: 'Major 7',
+        short: 'maj7',
+        formula: '1 – 3 – 5 – 7',
+        roles: { root: 0, third: 4, fifth: 7, seventh: 11, ext: null },
+        roleNames: { root: '1 (Root)', third: '3 (Maj 3rd)', fifth: '5 (Perf 5th)', seventh: '7 (Maj 7th)' },
+        diff: '<strong>What changes from Dominant 7?</strong> Uses the <strong>natural Major 7th (7)</strong>—just 1 half-step below the Root octave (instead of 2). Lush, dreamy, and reflective.'
+      },
+      min7: {
+        label: 'Minor 7',
+        short: 'm7',
+        formula: '1 – b3 – 5 – b7',
+        roles: { root: 0, third: 3, fifth: 7, seventh: 10, ext: null },
+        roleNames: { root: '1 (Root)', third: 'b3 (Min 3rd)', fifth: '5 (Perf 5th)', seventh: 'b7 (Flat 7th)' },
+        diff: '<strong>What changes from Major 7 (1–3–5–7)?</strong> Both the <strong>3rd AND the 7th drop by 1 half-step</strong> (<code>b3</code> and <code>b7</code>), softening the minor triad into a smooth groove chord.'
+      },
+      mmaj7: {
+        label: 'Min-Maj 7',
+        short: 'm(maj7)',
+        formula: '1 – b3 – 5 – 7',
+        roles: { root: 0, third: 3, fifth: 7, seventh: 11, ext: null },
+        roleNames: { root: '1 (Root)', third: 'b3 (Min 3rd)', fifth: '5 (Perf 5th)', seventh: '7 (Maj 7th)' },
+        diff: '<strong>The "James Bond" Spy Chord:</strong> Pairs a dark <strong>Minor 3rd (b3)</strong> on the bottom with a sharp, leading <strong>natural Major 7th (7)</strong> on top!'
+      },
+      dom7sus4: {
+        label: '7sus4',
+        short: '7sus4',
+        formula: '1 – 4 – 5 – b7',
+        roles: { root: 0, third: 5, fifth: 7, seventh: 10, ext: null },
+        roleNames: { root: '1 (Root)', third: '4 (Perf 4th)', fifth: '5 (Perf 5th)', seventh: 'b7 (Flat 7th)' },
+        diff: '<strong>What changes from Dominant 7?</strong> Pushes the Major 3rd up 1 half-step to the <strong>Perfect 4th (4)</strong> while keeping the <strong>flat 7th (b7)</strong>.'
+      },
+      m7b5: {
+        label: 'Half-Dim',
+        short: 'm7b5',
+        formula: '1 – b3 – b5 – b7',
+        roles: { root: 0, third: 3, fifth: 6, seventh: 10, ext: null },
+        roleNames: { root: '1 (Root)', third: 'b3 (Min 3rd)', fifth: 'b5 (Flat 5th)', seventh: 'b7 (Flat 7th)' },
+        diff: '<strong>What changes from Minor 7?</strong> Also <strong>lowers the 5th by 1 half-step (b5)</strong>! So the 3rd, 5th, and 7th are all flattened by 1 half-step compared to Major 7.'
+      },
+      dim7: {
+        label: 'Dim 7',
+        short: 'dim7',
+        formula: '1 – b3 – b5 – bb7',
+        roles: { root: 0, third: 3, fifth: 6, seventh: 9, ext: null },
+        roleNames: { root: '1 (Root)', third: 'b3 (Min 3rd)', fifth: 'b5 (Flat 5th)', seventh: 'bb7 (Dim 7 / 6th)' },
+        diff: '<strong>What makes it Diminished 7 vs. Dominant 7?</strong> Flattens the 3rd (<code>b3</code>), flattens the 5th (<code>b5</code>), and <strong>double-flattens the 7th (bb7, same pitch as the 6th)</strong>. Every note is symmetrically 3 semitones apart!'
+      },
+      aug7: {
+        label: 'Aug 7',
+        short: '7#5',
+        formula: '1 – 3 – #5 – b7',
+        roles: { root: 0, third: 4, fifth: 8, seventh: 10, ext: null },
+        roleNames: { root: '1 (Root)', third: '3 (Maj 3rd)', fifth: '#5 (Sharp 5th)', seventh: 'b7 (Flat 7th)' },
+        diff: '<strong>What changes from Dominant 7?</strong> Raises the 5th by 1 half-step (<code>#5</code>) while keeping the Major 3rd and flat 7th—classic blues/jazz turnaround tension.'
+      },
+      dom9: {
+        label: 'Dom 9',
+        short: '9',
+        formula: '1 – 3 – 5 – b7 – 9',
+        roles: { root: 0, third: 4, fifth: 7, seventh: 10, ext: 14 },
+        roleNames: { root: '1 (Root)', third: '3 (Maj 3rd)', fifth: '5 (Perf 5th)', seventh: 'b7 (Flat 7th)', ext: '9 (Maj 9th)' },
+        diff: '<strong>What makes a full 9th Chord?</strong> Takes a full <strong>Dominant 7th (1 – 3 – 5 – b7)</strong> and stacks the <strong>9th (2nd degree an octave higher)</strong> on top.'
+      },
+      min9: {
+        label: 'Minor 9',
+        short: 'm9',
+        formula: '1 – b3 – 5 – b7 – 9',
+        roles: { root: 0, third: 3, fifth: 7, seventh: 10, ext: 14 },
+        roleNames: { root: '1 (Root)', third: 'b3 (Min 3rd)', fifth: '5 (Perf 5th)', seventh: 'b7 (Flat 7th)', ext: '9 (Maj 9th)' },
+        diff: '<strong>What changes from Minor 7?</strong> Takes a Minor 7th (<code>1 – b3 – 5 – b7</code>) and adds the <strong>natural 9th</strong> on top for rich neo-soul and jazz depth.'
+      },
+      maj9: {
+        label: 'Major 9',
+        short: 'maj9',
+        formula: '1 – 3 – 5 – 7 – 9',
+        roles: { root: 0, third: 4, fifth: 7, seventh: 11, ext: 14 },
+        roleNames: { root: '1 (Root)', third: '3 (Maj 3rd)', fifth: '5 (Perf 5th)', seventh: '7 (Maj 7th)', ext: '9 (Maj 9th)' },
+        diff: '<strong>What changes from Major 7?</strong> Stacks the bright <strong>9th (2nd degree an octave up)</strong> on top of a Major 7th chord (<code>1 – 3 – 5 – 7</code>).'
+      },
+      hendrix7s9: {
+        label: '7#9 Hendrix',
+        short: '7#9',
+        formula: '1 – 3 – 5 – b7 – #9',
+        roles: { root: 0, third: 4, fifth: 7, seventh: 10, ext: 15 },
+        roleNames: { root: '1 (Root)', third: '3 (Maj 3rd)', fifth: '5 (Perf 5th)', seventh: 'b7 (Flat 7th)', ext: '#9 (Sharp 9 / b3)' },
+        diff: '<strong>Why the "Hendrix Chord" sounds so electric:</strong> Plays a <strong>Dominant 7th (1 – 3 – 5 – b7)</strong> with a <strong>Sharp 9 (#9)</strong> in the high octave—which is the exact same note as the <strong>Minor 3rd (b3)</strong> rubbing against the Major 3rd!'
+      }
+    };
+
+    // State for Tab 1: Single Chord Explorer
+    let explorerRoot = 9; // Default: A
+    let explorerType = 'min'; // Default: Minor
+    let explorerOctave = 3; // Default: Octave 3 (C3..B3 base)
+
+    let audioCtx = null;
+    let droneNodes = null;
+
+    function getAudio() {
+      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+      return audioCtx;
+    }
+
+    function midiToFreq(midi) {
+      return 440 * Math.pow(2, (midi - 69) / 12);
+    }
+
+    function midiToNameWithOctave(midi) {
+      const pc = midi % 12;
+      const oct = Math.floor(midi / 12) - 1;
+      return `${NOTES[pc]}${oct}`;
+    }
+
+    // Core synthesizer + automatic Synesthesia background color response
+    function playMidiNote(midi, duration = 0.95, vol = 0.28, source = 'general') {
+      const freq = midiToFreq(midi);
+      playNoteFreqOnly(freq, duration, vol);
+      triggerSynesthesiaFlash(midi, duration, source);
+    }
+
+    function playNoteFreqOnly(freq, duration = 0.95, vol = 0.28) {
+      const ctx = getAudio();
+      const now = ctx.currentTime;
+      const osc1 = ctx.createOscillator();
+      const osc2 = ctx.createOscillator();
+      const gain = ctx.createGain();
+      const filter = ctx.createBiquadFilter();
+
+      osc1.type = 'triangle';
+      osc2.type = 'sine';
+      osc1.frequency.setValueAtTime(freq, now);
+      osc2.frequency.setValueAtTime(freq * 2, now);
+
+      filter.type = 'lowpass';
+      filter.frequency.setValueAtTime(Math.min(14000, freq * 4.5), now);
+      filter.frequency.exponentialRampToValueAtTime(Math.max(120, freq * 1.3), now + duration);
+
+      gain.gain.setValueAtTime(0.001, now);
+      gain.gain.linearRampToValueAtTime(vol, now + 0.015);
+      gain.gain.exponentialRampToValueAtTime(0.0008, now + duration);
+
+      osc1.connect(filter);
+      osc2.connect(filter);
+      filter.connect(gain);
+      gain.connect(ctx.destination);
+
+      osc1.start(now);
+      osc2.start(now);
+      osc1.stop(now + duration);
+      osc2.stop(now + duration);
+    }
+
+    // DRONE (Uses currently selected Explorer Root)
+    function toggleDrone() {
+      const btn = document.getElementById('droneBtn');
+      if (droneNodes) {
+        stopDrone();
+        btn.textContent = '🔊 Root Drone';
+        btn.classList.remove('btn-active-green');
+        return;
+      }
+      startDrone();
+      btn.textContent = `⏹ ${NOTES[explorerRoot]} Drone`;
+      btn.classList.add('btn-active-green');
+    }
+
+    function startDrone() {
+      stopDrone();
+      const ctx = getAudio();
+      const rootMidi = 36 + explorerRoot;
+      const fifthMidi = rootMidi + 7;
+
+      const oscRoot = ctx.createOscillator();
+      const oscFifth = ctx.createOscillator();
+      const filter = ctx.createBiquadFilter();
+      const gain = ctx.createGain();
+
+      oscRoot.type = 'sawtooth';
+      oscFifth.type = 'triangle';
+      oscRoot.frequency.value = midiToFreq(rootMidi);
+      oscFifth.frequency.value = midiToFreq(fifthMidi);
+
+      filter.type = 'lowpass';
+      filter.frequency.value = 230;
+
+      gain.gain.setValueAtTime(0.001, ctx.currentTime);
+      gain.gain.linearRampToValueAtTime(0.14, ctx.currentTime + 0.4);
+
+      oscRoot.connect(filter);
+      oscFifth.connect(filter);
+      filter.connect(gain);
+      gain.connect(ctx.destination);
+
+      oscRoot.start();
+      oscFifth.start();
+      droneNodes = { oscRoot, oscFifth, gain };
+    }
+
+    function stopDrone() {
+      if (!droneNodes) return;
+      try {
+        droneNodes.oscRoot.stop();
+        droneNodes.oscFifth.stop();
+      } catch (e) {}
+      droneNodes = null;
+    }
+
+    // TAB 1: CHORD EXPLORER LOGIC
+    function renderExplorerControls() {
+      // 1. Render 12 Root Buttons with subtle synesthesia color underline
+      const rootGrid = document.getElementById('explorerRootGrid');
+      rootGrid.innerHTML = NOTES.map((n, idx) => {
+        const isSharp = n.includes('#');
+        const isActive = idx === explorerRoot;
+        const syn = getSynesthesiaColors((explorerOctave + 1) * 12 + idx);
+        return `
+          <button class="root-btn ${isSharp ? 'sharp' : ''} ${isActive ? 'active' : ''}"
+                  style="border-bottom: 3.5px solid ${syn.chipCss};"
+                  onclick="selectExplorerRoot(${idx})">
+            ${n}
+          </button>
+        `;
+      }).join('');
+
+      // 2. Highlight active Octave tab
+      [1, 2, 3, 4, 5, 6].forEach(o => {
+        const el = document.getElementById('chordOctBtn' + o);
+        if (el) el.classList.toggle('active', o === explorerOctave);
+      });
+
+      // 3. Render Chord Type Buttons
+      const typeGrid = document.getElementById('explorerTypeGrid');
+      typeGrid.innerHTML = Object.keys(CHORD_TYPES).map(tKey => {
+        const def = CHORD_TYPES[tKey];
+        const isActive = tKey === explorerType;
+        return `
+          <button class="chord-type-btn ${isActive ? 'active' : ''}" onclick="selectExplorerType('${tKey}')">
+            <div>${def.label}</div>
+            <span>${def.formula}</span>
+          </button>
+        `;
+      }).join('');
+    }
+
+    function selectExplorerRoot(rootIdx) {
+      explorerRoot = rootIdx;
+      renderExplorerControls();
+      renderChordAnatomy();
+      if (droneNodes) {
+        startDrone();
+        document.getElementById('droneBtn').textContent = `⏹ ${NOTES[explorerRoot]} Drone`;
+      }
+      if (document.getElementById('autoPlayChordToggle').checked) {
+        strumExplorerChord(90);
+      }
+    }
+
+    function selectExplorerType(typeKey) {
+      explorerType = typeKey;
+      renderExplorerControls();
+      renderChordAnatomy();
+      if (document.getElementById('autoPlayChordToggle').checked) {
+        strumExplorerChord(90);
+      }
+    }
+
+    function setChordOctave(oct) {
+      explorerOctave = Math.max(1, Math.min(6, oct));
+      renderExplorerControls();
+      renderChordAnatomy();
+      if (document.getElementById('autoPlayChordToggle').checked) {
+        strumExplorerChord(90);
+      }
+    }
+
+    function shiftChordOctave(delta) {
+      setChordOctave(explorerOctave + delta);
+    }
+
+    function getExplorerBaseMidi() {
+      return (explorerOctave + 1) * 12 + explorerRoot;
+    }
+
+    function strumExplorerChord(staggerMs = 90) {
+      const def = CHORD_TYPES[explorerType];
+      const baseMidi = getExplorerBaseMidi();
+      const intervals = [def.roles.root];
+      if (def.roles.third !== null) intervals.push(def.roles.third);
+      if (def.roles.fifth !== null) intervals.push(def.roles.fifth);
+      if (def.roles.seventh !== null) intervals.push(def.roles.seventh);
+      if (def.roles.ext !== null) intervals.push(def.roles.ext);
+
+      const perNoteVol = staggerMs === 0 ? 0.18 : 0.24;
+      if (staggerMs === 0) {
+        // Block chord: play all notes together & flash the Root note's synesthesia color
+        intervals.forEach(intv => {
+          playNoteFreqOnly(midiToFreq(baseMidi + intv), 1.4, perNoteVol);
+        });
+        triggerSynesthesiaFlash(baseMidi, 1.4, 'chord');
+      } else {
+        // Arpeggio: step through each note's audio + synesthesia color in sequence
+        intervals.forEach((intv, i) => {
+          setTimeout(() => playMidiNote(baseMidi + intv, 1.25, perNoteVol, 'chord'), i * staggerMs);
+        });
+      }
+    }
+
+    function renderChordAnatomy() {
+      const def = CHORD_TYPES[explorerType];
+      const rootName = NOTES[explorerRoot];
+      const baseMidi = getExplorerBaseMidi();
+
+      document.getElementById('anatomyTitle').textContent =
+        `🔍 ${rootName} ${def.label} (Octave ${explorerOctave})`;
+      document.getElementById('anatomyFormulaBadge').textContent =
+        `Formula: ${def.formula}`;
+      document.getElementById('anatomyDiffText').innerHTML = def.diff;
+
+      const items = [
+        {
+          role: def.roleNames.root,
+          midi: baseMidi + def.roles.root
+        }
+      ];
+      if (def.roles.third !== null) {
+        items.push({
+          role: def.roleNames.third,
+          midi: baseMidi + def.roles.third
+        });
+      }
+      if (def.roles.fifth !== null) {
+        items.push({
+          role: def.roleNames.fifth,
+          midi: baseMidi + def.roles.fifth
+        });
+      }
+      if (def.roles.seventh !== null) {
+        items.push({
+          role: def.roleNames.seventh,
+          midi: baseMidi + def.roles.seventh
+        });
+      }
+      if (def.roles.ext !== null) {
+        items.push({
+          role: def.roleNames.ext,
+          midi: baseMidi + def.roles.ext
+        });
+      }
+
+      const container = document.getElementById('anatomyPills');
+      container.style.gridTemplateColumns = `repeat(${items.length}, 1fr)`;
+      container.innerHTML = items.map(item => {
+        const syn = getSynesthesiaColors(item.midi);
+        return `
+          <div class="anatomy-pill"
+               style="border-top: 4px solid ${syn.chipCss}; background: ${syn.tintCss};"
+               onclick="playMidiNote(${item.midi}, 1.05, 0.3, 'anatomy')">
+            <div class="anatomy-role">${item.role}</div>
+            <div class="anatomy-note" style="color:${syn.chipCss};">${syn.noteName}</div>
+            <div class="anatomy-tap-hint">🌈 ${syn.colorName}</div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // TAB 2, PANEL 1: MULTI-OCTAVE EAR TRAINER (LISTEN -> IDENTIFY)
+    let mysteryMidi = null;
+    let selectedGuessOctave = 4;
+    let earAnswered = false;
+    let earStats = JSON.parse(localStorage.getItem('fretflow_ear_stats') || '{"correct":0,"total":0,"streak":0}');
+
+    function updateEarBadge() {
+      document.getElementById('earScoreBadge').textContent =
+        `Streak: ${earStats.streak} | ${earStats.correct}/${earStats.total}`;
+    }
+
+    function getEarNotePool() {
+      const mode = document.getElementById('earNotePool').value;
+      if (mode === 'pentatonic') return [0, 2, 4, 7, 9];
+      if (mode === 'chromatic') return [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
+      return [0, 2, 4, 5, 7, 9, 11];
+    }
+
+    function setGuessOctave(oct) {
+      selectedGuessOctave = Math.max(1, Math.min(6, oct));
+      [1, 2, 3, 4, 5, 6].forEach(o => {
+        const el = document.getElementById('octBtn' + o);
+        if (el) el.classList.toggle('active', o === selectedGuessOctave);
+      });
+      renderGuessButtons();
+    }
+
+    function shiftGuessOctave(delta) {
+      setGuessOctave(selectedGuessOctave + delta);
+    }
+
+    function renderGuessButtons() {
+      const pool = getEarNotePool();
+      const grid = document.getElementById('guessGrid');
+      grid.innerHTML = pool.map(pc => {
+        const midi = (selectedGuessOctave + 1) * 12 + pc;
+        const syn = getSynesthesiaColors(midi);
+        return `
+          <button class="guess-btn"
+                  style="border-color: ${syn.borderCss}; background: linear-gradient(180deg, rgba(15,23,42,0.92) 0%, ${syn.tintCss} 100%);"
+                  onclick="guessEarNote(${pc})">
+            <div>${NOTES[pc]}${selectedGuessOctave}</div>
+            <span>Deg: ${DEGREES[pc]}</span>
+            <div class="note-color-chip" style="background: ${syn.chipCss};">${syn.colorName}</div>
+          </button>
+        `;
+      }).join('');
+      updateEarBadge();
+    }
+
+    const EAR_RANGE_MAP = {
+      oct1:   [1],
+      oct2:   [2],
+      oct3:   [3],
+      oct4:   [4],
+      oct5:   [5],
+      oct6:   [6],
+      low12:  [1, 2],
+      low2:   [2, 3],
+      mid2:   [3, 4],
+      high2:  [4, 5],
+      high56: [5, 6],
+      low3:   [1, 2, 3],
+      full4:  [2, 3, 4, 5],
+      high3:  [4, 5, 6],
+      full6:  [1, 2, 3, 4, 5, 6]
+    };
+
+    function onEarRangeChange() {
+      const rangeMode = document.getElementById('earOctaveRange').value;
+      const allowedOcts = EAR_RANGE_MAP[rangeMode] || [2, 3, 4, 5];
+      if (!allowedOcts.includes(selectedGuessOctave)) {
+        setGuessOctave(allowedOcts[0]);
+      }
+      newEarQuestion();
+    }
+
+    function newEarQuestion() {
+      const pool = getEarNotePool();
+      const rangeMode = document.getElementById('earOctaveRange').value;
+      const pc = pool[Math.floor(Math.random() * pool.length)];
+
+      const octaves = EAR_RANGE_MAP[rangeMode] || [2, 3, 4, 5];
+      const chosenOct = octaves[Math.floor(Math.random() * octaves.length)];
+      mysteryMidi = (chosenOct + 1) * 12 + pc;
+
+      if (octaves.length === 1 && selectedGuessOctave !== chosenOct) {
+        setGuessOctave(chosenOct);
+      }
+
+      earAnswered = false;
+      document.getElementById('foldEarBtn').disabled = false;
+      document.getElementById('earFeedback').textContent =
+        `Listening (${octaves.map(o => 'Oct ' + o).join('/')})... Feel the pitch & color, then pick the octave & note!`;
+      playMidiNote(mysteryMidi, 1.05, 0.28, 'mystery');
+    }
+
+    function replayMystery() {
+      if (mysteryMidi === null) {
+        newEarQuestion();
+        return;
+      }
+      playMidiNote(mysteryMidi, 1.05, 0.28, 'mystery');
+    }
+
+    function playFoldedC4() {
+      if (mysteryMidi === null) return;
+      const foldedMidi = 60 + (mysteryMidi % 12);
+      playMidiNote(foldedMidi, 1.0, 0.28, 'mystery');
+      document.getElementById('earFeedback').innerHTML =
+        `🎯 Played mystery note folded into <strong>Octave 4 (Middle C4)</strong>. Compare that to your C4 Anchor!`;
+    }
+
+    function guessEarNote(pc) {
+      if (mysteryMidi === null) {
+        newEarQuestion();
+        return;
+      }
+      const guessedMidi = (selectedGuessOctave + 1) * 12 + pc;
+      playMidiNote(guessedMidi, 0.95, 0.28, 'guess');
+
+      const actualPc = mysteryMidi % 12;
+      const actualOct = Math.floor(mysteryMidi / 12) - 1;
+      const actualSyn = getSynesthesiaColors(mysteryMidi);
+      const guessSyn = getSynesthesiaColors(guessedMidi);
+
+      if (pc === actualPc && selectedGuessOctave === actualOct) {
+        if (!earAnswered) {
+          earStats.correct++;
+          earStats.total++;
+          earStats.streak++;
+          earAnswered = true;
+          localStorage.setItem('fretflow_ear_stats', JSON.stringify(earStats));
+          updateEarBadge();
+        }
+        document.getElementById('earFeedback').innerHTML =
+          `✅ Exact Match! <strong>${actualSyn.noteName}</strong> — <strong style="color:${actualSyn.chipCss};">${actualSyn.colorName} (${actualSyn.shadeLabel})</strong> • ${INTERVAL_HINTS[actualPc]}.`;
+      } else if (pc === actualPc && selectedGuessOctave !== actualOct) {
+        const dir = actualOct > selectedGuessOctave ? 'higher / brighter shade (tap ▶)' : 'lower / darker shade (tap ◀)';
+        document.getElementById('earFeedback').innerHTML =
+          `🟡 Right note & hue (<strong style="color:${actualSyn.chipCss};">${NOTES[pc]} • ${actualSyn.colorName}</strong>), wrong octave shade! Mystery note is ${dir} in <strong>Octave ${actualOct}</strong>!`;
+      } else {
+        if (!earAnswered) {
+          earStats.total++;
+          earStats.streak = 0;
+          earAnswered = true;
+          localStorage.setItem('fretflow_ear_stats', JSON.stringify(earStats));
+          updateEarBadge();
+        }
+        document.getElementById('earFeedback').innerHTML =
+          `❌ You played <strong>${guessSyn.noteName}</strong> (<span style="color:${guessSyn.chipCss};">${guessSyn.colorName}</span>). Tap <strong>Play</strong> to compare with the mystery note.`;
+      }
+    }
+
+    // TAB 2, PANEL 2: FREE-PLAY NOTE EXPLORER (IMAGINE -> VERIFY PITCH & COLOR, SCORE-FREE)
+    let freePlayOctave = 4;
+
+    function setFreeOctave(oct) {
+      freePlayOctave = Math.max(1, Math.min(6, oct));
+      [1, 2, 3, 4, 5, 6].forEach(o => {
+        const el = document.getElementById('freeOctBtn' + o);
+        if (el) el.classList.toggle('active', o === freePlayOctave);
+      });
+      renderFreePlayGrid();
+    }
+
+    function shiftFreeOctave(delta) {
+      setFreeOctave(freePlayOctave + delta);
+    }
+
+    function renderFreePlayGrid() {
+      const grid = document.getElementById('freePlayGrid');
+      grid.innerHTML = NOTES.map((n, pc) => {
+        const midi = (freePlayOctave + 1) * 12 + pc;
+        const syn = getSynesthesiaColors(midi);
+        return `
+          <button class="guess-btn"
+                  style="border-color: ${syn.borderCss}; background: linear-gradient(180deg, rgba(15,23,42,0.92) 0%, ${syn.tintCss} 100%);"
+                  onclick="triggerFreePlayNote(${pc})">
+            <div>${n}${freePlayOctave}</div>
+            <span>${DEGREES[pc]} (${INTERVAL_HINTS[pc].split('(')[0].trim()})</span>
+            <div class="note-color-chip" style="background: ${syn.chipCss};">${syn.colorName}</div>
+          </button>
+        `;
+      }).join('');
+    }
+
+    function triggerFreePlayNote(pc) {
+      const midi = (freePlayOctave + 1) * 12 + pc;
+      const freq = midiToFreq(midi);
+      const syn = getSynesthesiaColors(midi);
+      playMidiNote(midi, 1.05, 0.3, 'freeplay');
+      document.getElementById('freePlayStatus').innerHTML =
+        `🌈 <strong>${syn.noteName}</strong> (${freq.toFixed(1)} Hz) • <strong style="color:${syn.chipCss};">${syn.colorName} (${syn.shadeLabel})</strong> — ${INTERVAL_HINTS[pc]}`;
+    }
+
+    function switchView(view) {
+      const isChords = view === 'chords';
+      document.getElementById('viewChords').classList.toggle('hidden', !isChords);
+      document.getElementById('viewEar').classList.toggle('hidden', isChords);
+      document.getElementById('navChords').classList.toggle('active', isChords);
+      document.getElementById('navEar').classList.toggle('active', !isChords);
+    }
+
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('./sw.js').catch(() => {});
+    }
+
+    renderColorWheelStrip();
+    renderExplorerControls();
+    renderChordAnatomy();
+    renderGuessButtons();
+    renderFreePlayGrid();
+  </script>
+</body>
+</html>
