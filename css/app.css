@@ -75,6 +75,9 @@ svg text { fill: #fff; text-anchor: middle; font-weight: 650; paint-order: strok
 .clock .gap { font-size: 12px; fill: var(--dim); stroke: none; }
 .clock .center-name { font-size: 30px; font-weight: 750; }
 .clock .center-hit { fill: transparent; cursor: pointer; }
+.clock .center-name.long { font-size: 24px; }
+.clock .cnode .rel { font-size: 9.5px; fill: rgba(255,255,255,0.85); stroke: none; }
+.clock .cnode.root .rel { fill: #fff; font-weight: 800; }
 .clock .center-play { font-size: 12px; fill: var(--dim); stroke: none; }
 .clock .center-sub { font-size: 12px; fill: var(--dim); stroke: none; }
 

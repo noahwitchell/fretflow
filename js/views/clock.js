@@ -5,8 +5,29 @@ import * as C from '../color.js';
 import { selectChord, playMidi } from '../actions.js';
 import * as A from '../audio.js';
 
-let el, built = new Set(), synced = '';
+// Notes in the order you tapped them. The first one is the root (and the lowest note).
+let el, built = [], synced = '';
 const ck = c => `${c.root}:${c.type}`;
+
+// One fixed pitch per note: the root sits between G3 and F♯4 and every other note stacks
+// upward from it, so a note sounds the same when tapped and when the chord plays back.
+const rootMidi = r => 55 + T.mod12(r - 7);
+const pitchOf = pc => (built.length ? rootMidi(built[0]) + T.mod12(pc - built[0]) : rootMidi(pc));
+
+// Name the tapped notes from the first-tapped root; if they only spell a chord on another
+// root, it's that chord with your root in the bass, written as a slash chord (G7/D).
+function nameNotes(flats) {
+  if (built.length < 2) return null;
+  const root = built[0];
+  const hit = T.identifyAny(built, root);
+  if (!hit) return null;
+  if (hit.root === root) return { chord: hit, label: T.chordName(hit, flats), sub: T.CHORD_TYPES[hit.type].name };
+  return {
+    chord: hit, slash: true,
+    label: `${T.chordName(hit, flats)}/${T.noteName(root, flats)}`,
+    sub: `${T.chordName(hit, flats)} over a ${T.noteName(root, flats)} bass`,
+  };
+}
 const R = 150;
 // position follows the colour map, so the clock IS the colour wheel
 const slot = (s, r = R) => {
@@ -31,10 +52,11 @@ function hueRing() {
 function render() {
   const key = state.key, flats = T.usesFlats(key);
   // follow chords chosen elsewhere; otherwise keep the notes tapped here
-  if (ck(state.chord) !== synced) { built = new Set(T.chordPcs(state.chord)); synced = ck(state.chord); }
-  const pcs = [...built];
-  const named = pcs.length >= 2 ? T.identifyAny(pcs, state.chord.root) : null;
-  const chord = named || { root: pcs.length ? (pcs.includes(state.chord.root) ? state.chord.root : pcs[0]) : state.chord.root, type: 'maj' };
+  if (ck(state.chord) !== synced) { built = [...new Set(T.chordPcs(state.chord))]; synced = ck(state.chord); }
+  const pcs = built;
+  const nm = nameNotes(flats);
+  const root = pcs.length ? pcs[0] : null;
+  const chord = { root: root ?? state.chord.root, type: 'maj' };
   const scale = new Set(T.scalePcs(key));
   const scheme = C.schemeFor(pcs);
   // walk the chord tones in wheel order, starting from the root
@@ -56,16 +78,19 @@ function render() {
   let notes = '';
   for (let pc = 0; pc < 12; pc++) {
     const [x, y] = pos(pc);
-    const inChord = pcs.includes(pc), isRoot = pc === chord.root, inScale = scale.has(pc);
-    const label = state.labels === 'degree' ? (inChord ? T.degreeInChord(pc, chord) : T.DEGREE_NAMES[T.mod12(pc - key.tonic)]) : T.noteName(pc, flats);
+    const inChord = pcs.includes(pc), isRoot = pc === root, inScale = scale.has(pc);
+    const rel = root != null ? T.DEGREE_NAMES[T.mod12(pc - root)] : '';
+    const label = state.labels === 'degree' ? (inChord ? rel : T.DEGREE_NAMES[T.mod12(pc - key.tonic)]) : T.noteName(pc, flats);
+    // under each chosen note: its interval from your root ("1" marks the root itself)
+    const tag = inChord && state.labels !== 'degree' ? `<text class="rel" dy="17">${isRoot ? 'root' : rel}</text>` : '';
     notes += `<g class="cnode ${inChord ? 'on' : ''} ${inScale ? 'scale' : 'out'} ${isRoot ? 'root' : ''}" data-pc="${pc}" transform="translate(${x.toFixed(1)},${y.toFixed(1)})">
       <circle r="${inChord ? 25 : 19}" fill="${C.noteColor(pc, 4, inChord ? 1 : inScale ? 0.38 : 0.14)}"/>
-      <text dy="5">${label}</text></g>`;
+      <text dy="${tag ? 2 : 5}">${label}</text>${tag}</g>`;
   }
 
   el.querySelector('.hint').innerHTML = C.getMap() === 'fifths'
     ? 'Notes in circle-of-fifths order (= the colour wheel). Tap notes to build a chord; neighbours are a 5th apart, so close colours = consonant notes. Numbers = steps of a 5th.'
-    : 'Tap notes one at a time to build a chord: each plays alone, the shape grows, and the name appears. Tap the middle to hear them together. Numbers = half-steps between notes.';
+    : 'Tap notes one at a time: the <b>first one is the root</b> (lowest note), each plays alone, and the chord is named from your root. Tap the middle to hear them together. Numbers = half-steps between notes.';
   el.querySelector('.stage').innerHTML = `
     <svg viewBox="-200 -200 400 400" class="clock">
       ${hueRing()}
@@ -74,8 +99,8 @@ function render() {
       ${sides}
       ${notes}
       <circle r="62" class="center-hit"/>
-      <text class="center-name" y="-8">${named ? T.chordName(named, flats) : pcs.length ? pcs.map(p => T.noteName(p, flats)).join(' ') : '…'}</text>
-      <text class="center-sub" y="14">${named ? T.CHORD_TYPES[named.type].name : pcs.length < 2 ? 'tap notes to build' : 'not a named chord'}</text>
+      <text class="center-name ${nm && nm.label.length > 7 ? 'long' : ''}" y="-8">${nm ? nm.label : pcs.length ? pcs.map(p => T.noteName(p, flats)).join(' ') : '…'}</text>
+      <text class="center-sub" y="14">${nm ? nm.sub : pcs.length < 2 ? 'first note you tap = root' : 'not a named chord'}</text>
       ${pcs.length >= 2 ? `<text class="scheme-name" y="32">${scheme.name}</text><text class="center-play" y="52">▶ hear it</text>` : ''}
     </svg>`;
 }
@@ -87,21 +112,25 @@ export default {
     el.innerHTML = `<div class="clock-tools"><button class="btn small" data-clear>Clear notes</button></div><div class="stage"></div>
       <p class="hint"></p>`;
     el.addEventListener('click', e => {
-      if (e.target.closest('[data-clear]')) { built = new Set(); render(); return; }
+      if (e.target.closest('[data-clear]')) { built = []; render(); return; }
       if (e.target.closest('.center-hit')) {
-        if (built.size) { A.stopAll(); [...built].sort((a, b) => T.mod12(a - state.chord.root) - T.mod12(b - state.chord.root))
-          .forEach((pc, i, arr) => { const m = 60 + T.mod12(pc - state.chord.root) + (state.chord.root > 4 ? state.chord.root - 12 : state.chord.root);
-            playMidi(m, { at: i * 0.3, dur: 1.4 }); playMidi(m, { at: arr.length * 0.3 + 0.15 + i * 0.03, dur: 2.2, notify: false }); }); }
+        if (!built.length) return;
+        A.stopAll();
+        // the same pitches you tapped: one at a time from the root upward, then together
+        const ms = built.map(pitchOf).sort((a, b) => a - b);
+        ms.forEach((m, i) => playMidi(m, { at: i * 0.3, dur: 1.4 }));
+        const at = ms.length * 0.3 + 0.15;
+        ms.forEach((m, i) => playMidi(m, { at: at + i * 0.03, dur: 2.2, notify: false }));
         return;
       }
       const g = e.target.closest('.cnode');
       if (!g) return;
       const pc = +g.dataset.pc;
-      // build note by note: each tap plays just that note and adds/removes it
-      playMidi(60 + pc, { dur: 1.6 });
-      if (built.has(pc)) built.delete(pc); else built.add(pc);
-      const named = built.size >= 2 ? T.identifyAny([...built], state.chord.root) : null;
-      if (named) { synced = ck(named); selectChord(named, { play: false }); }
+      // build note by note: each tap plays just that note (at its fixed pitch) and adds/removes it
+      if (built.includes(pc)) { playMidi(pitchOf(pc), { dur: 1.2, vel: 0.4 }); built = built.filter(p => p !== pc); }
+      else { built = [...built, pc]; playMidi(pitchOf(pc), { dur: 1.6 }); }
+      const nm = nameNotes(false);
+      if (nm) { synced = ck(nm.chord); selectChord(nm.chord, { play: false }); }
       else render();
     });
   },
