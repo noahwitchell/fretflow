@@ -381,19 +381,19 @@ body.moves-mode #inspector { display: none; }
 .gcell.on { background: var(--c); color: #fff; border-color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,0.5); }
 .gcell.on::after { display: none; }
 .ginfo { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 10px 12px; flex: none; }
-.gname { font-size: 28px; font-weight: 800; }
-.gsub { font-size: 13px; color: var(--dim); }
+.gname { height: 30px; line-height: 30px; font-size: 28px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.gsub { height: 17px; line-height: 17px; font-size: 13px; color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .gsub b { color: var(--accent); }
-.gstack { display: flex; align-items: center; gap: 2px; overflow-x: auto; margin: 10px 0 8px; padding-bottom: 2px; scrollbar-width: none; }
+.gstack { height: 38px; display: flex; align-items: center; gap: 2px; overflow-x: auto; margin: 10px 0 8px; padding-bottom: 2px; scrollbar-width: none; }
 .gstack .lbl { font-size: 10px; color: var(--dim); text-transform: uppercase; margin: 0 4px; }
 .snote { flex: none; background: var(--c); border-radius: 8px; padding: 4px 7px; font-weight: 750; font-size: 13px; display: flex; flex-direction: column; align-items: center; text-shadow: 0 1px 2px rgba(0,0,0,0.5); line-height: 1.1; }
 .snote i { font-style: normal; font-size: 10px; }
 .sgap { flex: none; display: flex; flex-direction: column; align-items: center; font-weight: 800; font-size: 13px; color: var(--accent); padding: 0 3px; line-height: 1.1; }
 .sgap small { font-size: 8.5px; color: var(--dim); font-weight: 600; white-space: nowrap; }
-.gacts { display: flex; gap: 6px; flex-wrap: wrap; }
+.gacts { display: flex; gap: 6px; }
 
 /* grid: tall layout (phones) — one column per octave, big buttons */
-.ggrid.tall { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 3px 5px; }
+.ggrid.tall { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 2px 5px; }
 .ggrid.tall .goct { font-size: 11px; padding-bottom: 2px; }
 .ggrid.tall .gcell { height: var(--rowh, 40px); font-size: 15px; border-radius: 9px; display: flex; align-items: center; justify-content: center; gap: 2px; }
 .ggrid.tall .gcell small { font-size: 10px; opacity: 0.6; font-weight: 600; }
@@ -404,5 +404,5 @@ body.moves-mode #inspector { display: none; }
 .ginfo .gstack { margin: 6px 0; }
 
 .ginfo { padding: 8px 10px; }
-.ginfo .gacts .btn { padding: 6px 10px; font-size: 13px; }
+.ginfo .gacts .btn { flex: 1 1 0; min-width: 0; padding: 6px 2px; font-size: 13px; white-space: nowrap; }
 .ginfo .gsub { font-size: 12px; }

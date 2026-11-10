@@ -67,7 +67,6 @@ function render() {
   }
   const g = el.querySelector('.ggrid');
   g.classList.toggle('tall', tall);
-  requestAnimationFrame(fitRows);
   el.querySelector('.ggrid').innerHTML = cells;
 
   const a = analyse();
@@ -78,7 +77,7 @@ function render() {
       const base = T.chordName(a.chord, flats);
       const bassName = T.noteName(a.sorted[0], flats);
       name = a.bassIdx > 0 ? `${base}/${bassName}` : base;
-      sub = `${T.CHORD_TYPES[a.chord.type].name} · <b>${INVERSION[a.bassIdx] || 'inversion'}</b>${a.bassIdx > 0 ? ` (its ${a.bassDeg} is in the bass)` : ' (root in the bass)'}`;
+      sub = `${T.CHORD_TYPES[a.chord.type].name} · <b>${INVERSION[a.bassIdx] || 'inversion'}</b> · ${a.bassIdx > 0 ? a.bassDeg : 'root'} in bass`;
     } else {
       name = [...new Set(a.sorted.map(m => T.noteName(m, flats)))].join(' ');
       sub = 'Not a named chord (yet)';
@@ -92,23 +91,25 @@ function render() {
   }
   el.querySelector('.ginfo').innerHTML = `
     <div class="gname">${name}</div><div class="gsub">${sub}</div>
-    ${stack ? `<div class="gstack"><span class="lbl">low</span>${stack}<span class="lbl">high</span></div>` : ''}
+    <div class="gstack">${stack ? `<span class="lbl">low</span>${stack}<span class="lbl">high</span>` : ''}</div>
     <div class="gacts">
       <button class="btn" data-g="play" ${notes.length ? '' : 'disabled'}>▶ Hear</button>
       <button class="btn" data-g="up" ${notes.length > 1 ? '' : 'disabled'} title="Move the lowest note up an octave">Invert ↑</button>
       <button class="btn" data-g="down" ${notes.length > 1 ? '' : 'disabled'} title="Move the highest note down an octave">Invert ↓</button>
       <button class="btn ghost" data-g="clear">Clear</button>
-      ${a && a.chord ? '<button class="btn primary" data-g="add">+ Add</button>' : ''}
+      <button class="btn primary" data-g="add" ${a && a.chord ? '' : 'disabled'}>+ Add</button>
     </div>`;
   el.querySelector('.goctave').innerHTML = `<button class="btn small ghost" data-g="layout">${tall ? '⇆ Wide layout' : '⇅ Tall layout'}</button><span class="sp"></span>Octaves ${lowOct}–${lowOct + ROWS - 1}
     <button class="btn small" data-g="octdn" ${lowOct <= 1 ? 'disabled' : ''}>▼</button><button class="btn small" data-g="octup" ${lowOct >= 4 ? 'disabled' : ''}>▲</button>`;
+  fitRows();
 }
 
-// In the tall layout, size the 12 rows to fill whatever height is left (no scrolling to reach low C).
+// In the tall layout, size the 12 rows to fill the height left on this screen (no scrolling to reach low C).
+// Every line of the panel above has a fixed height, so this answer never changes as notes are tapped.
 function fitRows() {
   const g = el.querySelector('.ggrid');
   if (!g.classList.contains('tall')) { g.style.removeProperty('--rowh'); return; }
-  const used = el.querySelector('.ginfo').offsetHeight + el.querySelector('.goctave').offsetHeight + 24 + 22;
+  const used = el.querySelector('.ginfo').offsetHeight + el.querySelector('.goctave').offsetHeight + 26; // 26 = octave labels + gaps
   const h = Math.floor((el.clientHeight - used) / 12) - 3;
   g.style.setProperty('--rowh', `${Math.max(30, Math.min(52, h))}px`);
 }
@@ -134,7 +135,7 @@ export default {
     el = root;
     el.innerHTML = `<div class="ginfo"></div><div class="goctave"></div><div class="ggrid"></div>`;
     let lastTall = null;
-    new ResizeObserver(() => { const t = isTall(); if (t !== lastTall && el.classList.contains('active')) { lastTall = t; render(); } }).observe(el);
+    new ResizeObserver(() => { const t = isTall(); if (!el.classList.contains('active')) return; if (t !== lastTall) { lastTall = t; render(); } else fitRows(); }).observe(el);
     el.addEventListener('click', e => {
       const cell = e.target.closest('.gcell');
       if (cell) {
