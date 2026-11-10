@@ -15,7 +15,8 @@ Every tab has a **?** guide (shown automatically the first time).
 | --- | --- |
 | **Clock** | Chord builder on the colour wheel: tap notes one at a time (each plays alone), the shape grows and the chord is named, plus its colour-theory name (triad, complementary, analogous…). Tap the middle to hear them together. |
 | **Wheel** | Circle of fifths. Drag to turn it: the lit wedge at the top is the key's chord family. A strip below shows the key's 7 notes and its 7 chords (with roles: home, away, tension…); a banner names the one note that changes when you turn to the next key. |
-| **Moves** | Your chord on the 12-note ring plus five next-chord cards (relative, flip major/minor, half-step neighbour, up/down a fifth), each saying which notes stay and which move. Tapping one slides the note on the ring and in sound; your path becomes a progression. |
+| **Moves** | Your chord on the 12-note ring above a fixed palette (the key's 7 chords + 6 common borrowed ones). Each button shows ● per note shared with where you are and which notes would move; tapping slides those notes on the ring and in sound. Your path becomes a progression. |
+| **Grid** | Every note across 4 octaves (rows = octaves). Tap exact pitches to build chords anywhere; it names the inversion (C/E = 1st inversion) and shows the interval between each stacked note. Invert ↑/↓ moves the bottom/top note an octave. |
 
 Tapping a chord plays its notes one by one, then together (Settings → *Tapping a chord plays*).
 Settings (tap the key): key, note names vs degrees, colour flash/hold/off, and the colour
@@ -28,7 +29,7 @@ harmony: neighbouring colours are a 5th apart, a key is one unbroken sweep, oppo
   Options: octave range, timbre (guitar / piano / pure / mix), noise between notes (stops you
   working it out from the last note), colour on / *fade as I learn* / off. Answer time is shown; real pitch memory is instant.
 - **Degrees**: a I–IV–V–I sets the key, a note plays, name its degree (1–7 or all 12, with solfège), then it resolves home.
-- **Sing**: recall a note with no reference, sing it; the mic measures how many cents off you are. Also a live tuner with colour.
+- **Sing**: recall a note with no reference, sing it; the mic measures how many cents off you are. Also a live tuner with colour. (iOS: the audio session switches to play-and-record while listening; 'playback' blocks the mic.)
 - **Imagine**: hear a note in your head, then tap to check. Includes your anchor library (a known sound per note).
 - **Progress**: day streak, minutes, 14-day chart, mix-ups grid, per-note accuracy/speed, and colour-on vs colour-off accuracy.
 

@@ -1,6 +1,6 @@
-// Moves: how chords connect. Your chord sits on the 12-note ring; five cards offer the classic
-// next steps, each saying which notes stay and which move. Tapping one slides the moving note
-// on the ring (and in your ears) and makes that chord the new centre. Your path is a trail.
+// Moves: how chords connect. Your chord sits on the 12-note ring; a fixed palette of chords
+// below (the key's 7 + common borrowed ones) shows, for each, which notes it shares with where
+// you are. Tapping one slides the moving notes on the ring (and in your ears). Your path is a trail.
 import { state, set, on } from '../store.js';
 import * as T from '../theory.js';
 import * as C from '../color.js';
@@ -10,6 +10,7 @@ import { playChord } from '../actions.js';
 let el, trail = [], last = null, raf = 0;
 const R = 118;
 
+const triadOrSelf = c => (['maj', 'min', 'dim', 'aug'].includes(c.type) ? { root: c.root, type: c.type } : triad(c));
 const triad = c => ({ root: c.root, type: T.FAMILY[c.type] === 'min' || T.FAMILY[c.type] === 'dim' ? 'min' : 'maj' });
 const pcsOf = c => [...new Set(T.chordPcs(c))];
 const ang = pc => (C.wheelPos(pc) / 12) * Math.PI * 2;
@@ -29,23 +30,6 @@ function diff(a, b) {
     outs = outs.filter(o => o !== best[0]); ins = ins.filter(i => i !== best[1]);
   }
   return { shared, pairs };
-}
-
-function movesFor(c) {
-  const t = triad(c), p = T.plr(t), maj = t.type === 'maj';
-  return [
-    { id: 'R', title: maj ? 'Relative minor' : 'Relative major', blurb: maj ? 'Its sad twin: the closest relative there is.' : 'Its bright twin: the closest relative there is.', to: p.R },
-    { id: 'P', title: maj ? 'Flip to minor' : 'Flip to major', blurb: 'Same root, only the middle note slides. Instant mood swap.', to: p.P },
-    { id: 'L', title: 'Half-step neighbour', blurb: 'One note slides a half step: a soft, dreamy shift.', to: p.L },
-    { id: 'V', title: 'Up a fifth', blurb: 'Builds tension: from there, coming back here feels like home.', to: { root: T.mod12(t.root + 7), type: t.type } },
-    { id: 'IV', title: 'Down a fifth', blurb: 'Steps away from home, opening up.', to: { root: T.mod12(t.root + 5), type: t.type } },
-  ];
-}
-
-function moveText(d, flats) {
-  const mv = d.pairs.map(([o, i, s]) => `${T.noteName(o, flats)} → ${T.noteName(i, flats)} <small>(${s > 0 ? 'up' : 'down'} ${Math.abs(s) === 1 ? 'a half step' : Math.abs(s) === 2 ? 'a whole step' : Math.abs(s) + ' half steps'})</small>`).join('<br>');
-  const keep = d.shared.length ? `keeps ${d.shared.map(p => T.noteName(p, flats)).join(' ')}` : 'keeps nothing';
-  return `${mv}<div class="keep">${keep}</div>`;
 }
 
 function ringSvg(cur) {
@@ -100,24 +84,45 @@ function animateShape(cur) {
   raf = requestAnimationFrame(frame);
 }
 
+// Fixed palette: the key's 7 chords, then common chords borrowed from outside the key.
+// Positions never change, so you can compare; only the "shares / moves" line updates.
+const BORROWED = {
+  major: [[3, 'maj'], [5, 'min'], [8, 'maj'], [10, 'maj'], [2, 'maj'], [4, 'maj']],
+  minor: [[5, 'maj'], [7, 'maj'], [1, 'maj'], [0, 'maj'], [2, 'min'], [9, 'min']],
+};
+function palette() {
+  const key = state.key;
+  const inKey = T.diatonic(key).map(c => ({ root: c.root, type: c.type === 'dim' ? 'dim' : c.type }));
+  const out = BORROWED[key.mode].map(([o, t]) => ({ root: T.mod12(key.tonic + o), type: t }));
+  return { inKey, out };
+}
+
+function card(c, cur, flats, i, row) {
+  const here = T.sameChord(c, cur);
+  const d = diff(cur, c);
+  const n = pcsOf(c).length;
+  const moves = here ? 'you are here' : d.pairs.map(([o, i2]) => `${T.noteName(o, flats)}→${T.noteName(i2, flats)}`).join(' ') || 'same notes';
+  return `<button class="pcard ${here ? 'here' : ''} ${d.shared.length >= 2 && !here ? 'close' : ''}" data-row="${row}" data-i="${i}" style="--c:${C.noteColor(c.root)}">
+    <span class="rn">${T.romanFor(c, state.key)}</span><b>${T.chordName(c, flats)}</b>
+    <span class="dots">${here ? '' : '●'.repeat(d.shared.length) + '○'.repeat(Math.max(0, n - d.shared.length))}</span>
+    <small>${moves}</small></button>`;
+}
+
 function render() {
-  const cur = triad(state.chord), flats = T.usesFlats(state.key);
+  const cur = triadOrSelf(state.chord), flats = T.usesFlats(state.key);
   if (!trail.length || !T.sameChord(trail[trail.length - 1], cur)) {
     if (!(last && T.sameChord(last.to, cur))) last = null; // chosen elsewhere: no arrows
-    trail.push(cur); trail = trail.slice(-12);
+    trail.push(cur); trail = trail.slice(-16);
   }
-  const cards = movesFor(cur).map(m => {
-    const d = diff(cur, m.to), dia = T.isDiatonic(m.to, state.key);
-    return `<button class="mcard" data-move="${m.id}" style="--c:${C.noteColor(m.to.root)}">
-      <div class="mtop"><b>${T.chordName(m.to, flats)}</b><span class="rn ${dia ? '' : 'out'}">${T.romanFor(m.to, state.key)}</span><span class="dots">${'●'.repeat(d.shared.length)}${'○'.repeat(3 - d.shared.length)}</span></div>
-      <div class="mtitle">${m.title}</div>
-      <div class="mmove">${moveText(d, flats)}</div>
-      <div class="mblurb">${m.blurb}</div></button>`;
-  }).join('');
+  const { inKey, out } = palette();
   el.querySelector('.mtrail').innerHTML = `<span class="lbl">Path</span>${trail.map((c, i) => `<button class="tchip ${i === trail.length - 1 ? 'on' : ''}" data-ti="${i}" style="--c:${C.noteColor(c.root)}">${T.chordName(c, flats)}</button>`).join('<span class="arr">→</span>')}
     ${trail.length > 1 ? '<button class="btn small" data-use>Use as progression</button><button class="btn small ghost" data-reset>Restart</button>' : ''}`;
   el.querySelector('.mstage').innerHTML = ringSvg(cur);
-  el.querySelector('.mcards').innerHTML = cards;
+  el.querySelector('.mcards').innerHTML = `
+    <div class="prow-h">In ${T.keyName(state.key)} <span class="dim">● = notes shared with ${T.chordName(cur, flats)}</span></div>
+    <div class="prow k7">${inKey.map((c, i) => card(c, cur, flats, i, 'in')).join('')}</div>
+    <div class="prow-h">Borrowed from outside the key</div>
+    <div class="prow k6">${out.map((c, i) => card(c, cur, flats, i, 'out')).join('')}</div>`;
   animateShape(cur);
   const tr = el.querySelector('.mtrail'); tr.scrollLeft = tr.scrollWidth;
 }
@@ -142,11 +147,13 @@ export default {
     el = root;
     el.innerHTML = `<div class="mtrail"></div><div class="mstage stage"></div><div class="mcards"></div>`;
     el.addEventListener('click', e => {
-      const card = e.target.closest('[data-move]');
-      if (card) {
-        const cur = triad(state.chord);
-        const m = movesFor(cur).find(x => x.id === card.dataset.move);
-        return go(m.to, cur);
+      const pc = e.target.closest('.pcard');
+      if (pc) {
+        const cur = triadOrSelf(state.chord);
+        const { inKey, out } = palette();
+        const to = (pc.dataset.row === 'in' ? inKey : out)[+pc.dataset.i];
+        if (T.sameChord(to, cur)) { A.stopAll(); return playChord(to, state.tapSound); }
+        return go(to, cur);
       }
       const t = e.target.closest('[data-ti]');
       if (t) { const c = trail[+t.dataset.ti]; trail = trail.slice(0, +t.dataset.ti); last = null; set({ chord: { ...c } }); playChord(c, state.tapSound); return; }

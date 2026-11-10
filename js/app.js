@@ -6,12 +6,14 @@ import { selectChord, playChord, addToProg, removeFromProg, clearProg, playProg,
 import clock from './views/clock.js';
 import wheel from './views/wheel.js';
 import moves from './views/moves.js';
+import grid from './views/grid.js';
 import ear from './views/ear.js';
 
 const VIEWS = [
   { v: clock, label: 'Clock' },
   { v: wheel, label: 'Wheel' },
   { v: moves, label: 'Moves' },
+  { v: grid, label: 'Grid' },
   { v: ear, label: 'Ear' },
 ];
 const $ = s => document.querySelector(s);
@@ -54,7 +56,7 @@ function showView() {
   });
   document.querySelectorAll('.tabs button').forEach(b => b.classList.toggle('on', b.dataset.view === state.view));
   document.body.classList.toggle('ear-mode', state.view === 'ear');
-  document.body.classList.toggle('moves-mode', state.view === 'moves');
+  document.body.classList.toggle('moves-mode', state.view === 'moves' || state.view === 'grid');
   maybeHelp();
 }
 
@@ -72,11 +74,17 @@ const HELP = {
     <li><b>Drag the wheel</b> one click. A banner tells you exactly which single note changed: neighbouring keys differ by one note, which is why they sound related.</li></ol>
     <p class="tip">Outside ring = major chords, middle = minor, centre = diminished. Gold outlines = chords sharing 2 notes with the one you tapped.</p>` },
   moves: { t: 'Moves: how one chord leads to the next', b: `
-    <p>Chords feel related when they share notes. Every card is a next chord, showing which notes <b>stay</b> and which <b>move</b> (● = notes kept).</p>
-    <ol><li>From C, tap <b>Relative minor</b>: C and E stay, G slides up to A. Hear it slide, see the shape move.</li>
-    <li>Keep tapping cards and you're writing a progression. Your path builds up at the top.</li>
-    <li>Tap <b>Use as progression</b>, then ▶ at the bottom to play it back.</li></ol>
-    <p class="tip">Fewer moving notes = smoother. "Up a fifth" then back "Down a fifth" is the strongest there-and-home move in music.</p>` },
+    <p>Chords feel related when they share notes. The chord buttons below never move; the ring shows what changes when you go from one to the next: the dashed shape is where you were, arrows show the notes that move.</p>
+    <ol><li>Tap <b>C</b>, then <b>Am</b>: C and E stay, G slides up to A.</li>
+    <li>Each button shows ● for every note it shares with where you are now, and which notes would move. Gold-edged buttons share 2 notes: smooth moves.</li>
+    <li>Your path builds at the top. Tap <b>Use as progression</b>, then ▶ at the bottom to play it.</li></ol>
+    <p class="tip">Top row = the key's 7 chords. Bottom row = popular chords "borrowed" from outside the key for extra colour (like the ♭VII in rock).</p>` },
+  grid: { t: 'Grid: chords in any octave', b: `
+    <p>Every note across four octaves: each row is one octave (low at the bottom), each column one note name. Unlike the Clock, here <b>which octave</b> a note is in matters.</p>
+    <ol><li>Tap <b>C3, E3, G3</b>: C major in root position (C at the bottom).</li>
+    <li>Tap <b>Invert ↑</b>: the C jumps up an octave, so E is the lowest note. Same chord, new sound: <b>C/E, 1st inversion</b>. Again: G at the bottom, 2nd inversion.</li>
+    <li>Watch the numbers between notes: the gaps (3 or 4 half steps, then 5…) change as you invert, which is why each inversion has its own colour of sound.</li></ol>
+    <p class="tip">Faint dots mark the same note in other octaves. Try spreading a chord out: C2, G3, E4 is still C major, just wider.</p>` },
   ear: { t: 'Ear: train your pitch', b: `
     <p><b>Notes</b>: name the note you hear (starts with 3, adds more at 90%). <b>Degrees</b>: hear a key, name the note's place in it. <b>Sing</b>: sing a note from memory and see how close you are. <b>Imagine</b>: hear it in your head, then check. <b>Progress</b>: your stats.</p>
     <p class="tip">10 minutes a day beats an hour once a week. Do a Sing check first thing, before any music.</p>` },

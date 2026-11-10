@@ -33,13 +33,19 @@ export function audio() {
   return ctx;
 }
 
+// iOS audio session: 'playback' plays through the silent switch but forbids recording, so the
+// mic needs 'play-and-record' while Sing is listening.
+let recording = false;
+function setSession(type) { try { if (navigator.audioSession) navigator.audioSession.type = type; } catch {} }
+export function micSession(on) { recording = on; setSession(on ? 'play-and-record' : 'playback'); }
+
 // iPhone suspends ("interrupts") web audio when the screen locks, and sometimes never lets it
 // resume. On every touch and whenever the app comes back, try to resume; if it's still dead a
 // moment later, throw the old context away and build a fresh one.
 let reviving = false;
 export function revive() {
   // play through the ringer/silent switch like a music app (Safari 17+)
-  try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch {}
+  if (!recording) setSession('playback');
   if (!ctx || reviving) return;
   if (ctx.state === 'running') return;
   reviving = true;

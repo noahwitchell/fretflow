@@ -1,13 +1,25 @@
 // Microphone pitch detection (YIN-style), for the Sing mode.
-import { audio } from '../audio.js';
+import { audio, micSession } from '../audio.js';
 
 let stream = null, src = null, an = null, raf = 0, buf = null, frame = 0;
 
+// Open the mic with the audio session switched to recording; retry once with the session
+// left to the system and plain constraints, since iOS can be picky about both.
+export async function getMicStream(constraints = { echoCancellation: false, noiseSuppression: false, autoGainControl: false }) {
+  micSession(true);
+  try {
+    return await navigator.mediaDevices.getUserMedia({ audio: constraints });
+  } catch (e1) {
+    if (e1.name === 'NotAllowedError' && !/session|audio/i.test(e1.message || '')) { micSession(false); throw e1; }
+    try { if (navigator.audioSession) navigator.audioSession.type = 'auto'; } catch {}
+    try { return await navigator.mediaDevices.getUserMedia({ audio: true }); }
+    catch (e2) { micSession(false); throw e2; }
+  }
+}
+
 export async function startMic(onPitch) {
   const c = audio();
-  stream = await navigator.mediaDevices.getUserMedia({
-    audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false },
-  });
+  stream = await getMicStream();
   src = c.createMediaStreamSource(stream);
   an = c.createAnalyser(); an.fftSize = 2048;
   src.connect(an);
@@ -25,6 +37,7 @@ export function stopMic() {
   cancelAnimationFrame(raf);
   if (stream) stream.getTracks().forEach(t => t.stop());
   if (src) src.disconnect();
+  if (stream) micSession(false);
   stream = src = an = null;
 }
 

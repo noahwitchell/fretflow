@@ -4,7 +4,8 @@ import * as T from '../theory.js';
 import * as C from '../color.js';
 import * as A from '../audio.js';
 import { data, save, logSing, unlocked } from './log.js';
-import { startMic, stopMic, micActive, centsFromPc, freqToMidi } from './pitch.js';
+import { startMic, stopMic, micActive, centsFromPc, freqToMidi, getMicStream } from './pitch.js';
+import { micSession } from '../audio.js';
 import { seg } from './ui.js';
 
 let el, target = null, mode = 'idle', samples = [], lastF = null, lastWash = 0;
@@ -21,7 +22,9 @@ function pickTarget() {
 }
 
 // ---- microphone permission ---------------------------------------------------
-let micState = 'unknown'; // 'granted' | 'prompt' | 'denied' | 'unsupported' | 'unknown'
+let micState = 'unknown'; // 'granted' | 'prompt' | 'denied' | 'error' | 'unsupported' | 'unknown'
+let micErr = '';
+const classify = err => { micErr = `${err.name}${err.message ? ': ' + err.message : ''}`; return err.name === 'NotAllowedError' || err.name === 'SecurityError' ? 'denied' : 'error'; };
 
 async function checkMic() {
   if (!navigator.mediaDevices?.getUserMedia) { micState = 'unsupported'; return paintMic(); }
@@ -36,12 +39,13 @@ async function checkMic() {
 // Asking for the stream is what makes the phone show its permission prompt.
 async function askMic() {
   try {
-    const s = await navigator.mediaDevices.getUserMedia({ audio: true });
+    const s = await getMicStream();
     s.getTracks().forEach(t => t.stop());
+    micSession(false);
     micState = 'granted';
     fb('Microphone on. Tap 🎤 Sing it when you have a note.', 'good');
   } catch (err) {
-    micState = err.name === 'NotAllowedError' || err.name === 'SecurityError' ? 'denied' : 'unsupported';
+    micState = classify(err);
   }
   paintMic();
   return micState === 'granted';
@@ -70,12 +74,19 @@ function paintMic() {
   if (micState === 'granted') { box.innerHTML = '<span class="mic-ok">🎤 Microphone on</span>'; return; }
   if (micState === 'denied') {
     box.innerHTML = `<div class="mic-warn"><b>🎤 Microphone is blocked</b>
-      <p class="dim small">Websites can't open Settings for you, so here's where the switch is:</p>${unblockSteps()}
+      <p class="dim small">Websites can't open Settings for you, so here's where the switch is:</p>${unblockSteps()}${micErr ? `<p class="dim small">(${micErr})</p>` : ''}
+      <button class="btn primary" data-act="allow">Try again</button></div>`;
+    return;
+  }
+  if (micState === 'error') {
+    box.innerHTML = `<div class="mic-warn"><b>🎤 The microphone didn't start</b>
+      <p class="dim small">The phone said: <code>${micErr}</code></p>
+      <ol><li>Swipe FretFlow away in the app switcher and reopen it.</li><li>Make sure no other app (a call, voice memo, music app recording) is using the mic.</li><li>Tap <b>Try again</b>.</li></ol>
       <button class="btn primary" data-act="allow">Try again</button></div>`;
     return;
   }
   if (micState === 'unsupported') {
-    box.innerHTML = `<div class="mic-warn"><b>🎤 No microphone available here</b><p class="dim small">Open FretFlow in Safari (iPhone) or Chrome, over https.</p></div>`;
+    box.innerHTML = `<div class="mic-warn"><b>🎤 No microphone available here</b><p class="dim small">This browser has no microphone access at all. Open FretFlow in Safari (iPhone) or Chrome, over https.</p></div>`;
     return;
   }
   box.innerHTML = `<div class="mic-ask"><span>Sing mode listens through your microphone. Nothing is recorded or sent anywhere.</span>
@@ -87,7 +98,7 @@ async function listen(free = false) {
     if (!micActive()) await startMic(onPitch);
     micState = 'granted'; paintMic();
   } catch (err) {
-    micState = err.name === 'NotAllowedError' || err.name === 'SecurityError' ? 'denied' : 'unsupported';
+    micState = classify(err);
     paintMic();
     fb('The microphone is blocked: see the steps above.', 'bad');
     return;
