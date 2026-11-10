@@ -20,11 +20,76 @@ function pickTarget() {
   fb(`Sing or hum <b>${T.noteName(pc)}</b> from memory, any octave.${anchor ? `<br><span class="dim">Anchor: ${anchor}</span>` : ''}`);
 }
 
+// ---- microphone permission ---------------------------------------------------
+let micState = 'unknown'; // 'granted' | 'prompt' | 'denied' | 'unsupported' | 'unknown'
+
+async function checkMic() {
+  if (!navigator.mediaDevices?.getUserMedia) { micState = 'unsupported'; return paintMic(); }
+  try {
+    const p = await navigator.permissions.query({ name: 'microphone' });
+    micState = p.state;
+    p.onchange = () => { micState = p.state; paintMic(); };
+  } catch { /* older Safari can't report it; we'll find out when asking */ }
+  paintMic();
+}
+
+// Asking for the stream is what makes the phone show its permission prompt.
+async function askMic() {
+  try {
+    const s = await navigator.mediaDevices.getUserMedia({ audio: true });
+    s.getTracks().forEach(t => t.stop());
+    micState = 'granted';
+    fb('Microphone on. Tap 🎤 Sing it when you have a note.', 'good');
+  } catch (err) {
+    micState = err.name === 'NotAllowedError' || err.name === 'SecurityError' ? 'denied' : 'unsupported';
+  }
+  paintMic();
+  return micState === 'granted';
+}
+
+function unblockSteps() {
+  const ua = navigator.userAgent;
+  const ios = /iPhone|iPad|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const android = /Android/.test(ua);
+  const app = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone;
+  if (ios) return `<ol>
+      <li>Open the iPhone <b>Settings</b> app → <b>Apps</b> → <b>Safari</b>.</li>
+      <li>Scroll to <b>Settings for Websites</b> → <b>Microphone</b> → choose <b>Ask</b> (or Allow).</li>
+      <li>Check <b>Settings → Screen Time → Content &amp; Privacy Restrictions → Microphone</b> isn't set to Don't Allow.</li>
+      <li>${app ? 'Swipe FretFlow away in the app switcher, reopen it' : 'Reload this page'}, then tap <b>Try again</b> below and choose Allow.</li>
+    </ol><p class="dim small">On iOS 17 or older, Microphone is under Settings → Safari directly.</p>`;
+  if (android) return `<ol>
+      <li>${app ? 'Long-press the FretFlow icon → <b>App info</b> → <b>Permissions</b>' : 'Tap the icon left of the address bar → <b>Permissions</b>'} → <b>Microphone</b> → <b>Allow</b>.</li>
+      <li>Come back and tap <b>Try again</b>.</li></ol>`;
+  return `<ol><li>Click the icon at the left of the address bar → <b>Microphone</b> → <b>Allow</b>.</li><li>Click <b>Try again</b>.</li></ol>`;
+}
+
+function paintMic() {
+  const box = el.querySelector('.mic-box');
+  if (!box) return;
+  if (micState === 'granted') { box.innerHTML = '<span class="mic-ok">🎤 Microphone on</span>'; return; }
+  if (micState === 'denied') {
+    box.innerHTML = `<div class="mic-warn"><b>🎤 Microphone is blocked</b>
+      <p class="dim small">Websites can't open Settings for you, so here's where the switch is:</p>${unblockSteps()}
+      <button class="btn primary" data-act="allow">Try again</button></div>`;
+    return;
+  }
+  if (micState === 'unsupported') {
+    box.innerHTML = `<div class="mic-warn"><b>🎤 No microphone available here</b><p class="dim small">Open FretFlow in Safari (iPhone) or Chrome, over https.</p></div>`;
+    return;
+  }
+  box.innerHTML = `<div class="mic-ask"><span>Sing mode listens through your microphone. Nothing is recorded or sent anywhere.</span>
+    <button class="btn primary" data-act="allow">🎤 Allow microphone</button></div>`;
+}
+
 async function listen(free = false) {
   try {
     if (!micActive()) await startMic(onPitch);
+    micState = 'granted'; paintMic();
   } catch (err) {
-    fb(`Microphone blocked (${err.name}). Allow mic access for this site, then try again.`, 'bad');
+    micState = err.name === 'NotAllowedError' || err.name === 'SecurityError' ? 'denied' : 'unsupported';
+    paintMic();
+    fb('The microphone is blocked: see the steps above.', 'bad');
     return;
   }
   mode = free ? 'free' : 'listening'; samples = [];
@@ -100,18 +165,19 @@ export default {
   id: 'sing', label: 'Sing',
   mount(root) {
     el = root;
-    el.innerHTML = `<div class="ear-controls"></div><div class="sing-stage"></div><div class="ear-fb">Recall a note with no reference, sing it, and see how close your inner pitch is.</div>`;
+    el.innerHTML = `<div class="mic-box"></div><div class="ear-controls"></div><div class="sing-stage"></div><div class="ear-fb">Recall a note with no reference, sing it, and see how close your inner pitch is.</div>`;
     el.addEventListener('click', e => {
       const sc = e.target.closest('.seg-ctl[data-name] button');
       if (sc) { data.opts.singPool = sc.dataset.v; save(); paint(); return; }
       const act = e.target.closest('[data-act]')?.dataset.act;
       if (act === 'target') { if (micActive()) stopMic(); pickTarget(); }
+      if (act === 'allow') askMic();
       if (act === 'listen') listen(false);
       if (act === 'free') listen(true);
       if (act === 'stop') stop();
     });
     paint();
   },
-  show() { paint(); },
+  show() { paint(); checkMic(); },
   hide() { if (micActive()) stop(); },
 };
