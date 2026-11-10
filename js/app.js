@@ -5,13 +5,13 @@ import * as C from './color.js';
 import { selectChord, playChord, addToProg, removeFromProg, clearProg, playProg, stopProg, isPlaying, playMidi } from './actions.js';
 import clock from './views/clock.js';
 import wheel from './views/wheel.js';
-import tonnetz from './views/tonnetz.js';
+import moves from './views/moves.js';
 import ear from './views/ear.js';
 
 const VIEWS = [
   { v: clock, label: 'Clock' },
   { v: wheel, label: 'Wheel' },
-  { v: tonnetz, label: 'Grid' },
+  { v: moves, label: 'Moves' },
   { v: ear, label: 'Ear' },
 ];
 const $ = s => document.querySelector(s);
@@ -54,7 +54,44 @@ function showView() {
   });
   document.querySelectorAll('.tabs button').forEach(b => b.classList.toggle('on', b.dataset.view === state.view));
   document.body.classList.toggle('ear-mode', state.view === 'ear');
+  document.body.classList.toggle('moves-mode', state.view === 'moves');
+  maybeHelp();
 }
+
+// ---- help: a short "what is this for / try this" card per tab ------------------
+const HELP = {
+  clock: { t: 'Clock: build a chord', b: `
+    <p>The 12 notes in a circle. A chord is just a few of them played together.</p>
+    <ol><li>Tap <b>Clear notes</b>.</li><li>Tap <b>C</b>, then <b>E</b>, then <b>G</b>. Each note plays alone; the shape grows; the name appears (C major).</li>
+    <li>Tap the middle to hear them together.</li><li>Now tap <b>E</b> again to remove it and tap <b>D♯</b>: one note moved a half step and it's C minor.</li></ol>
+    <p class="tip">The first note you tap is the root (the lowest note). Same notes from a different first note = a different name.</p>` },
+  wheel: { t: 'Wheel: keys and their chord families', b: `
+    <p>A <b>key</b> is a set of 7 notes that sound good together. The 7 chords built from those notes are the key's family. They're the lit wedge at the top, and the strip below the wheel.</p>
+    <ol><li>Tap the family chords below the wheel left to right. Watch which of the 7 notes light up: each chord uses every other note.</li>
+    <li>Try the pop progression: <b>I → V → vi → IV</b> (C, G, Am, F). Tap each, then <b>+ Add</b>, then ▶ at the bottom.</li>
+    <li><b>Drag the wheel</b> one click. A banner tells you exactly which single note changed: neighbouring keys differ by one note, which is why they sound related.</li></ol>
+    <p class="tip">Outside ring = major chords, middle = minor, centre = diminished. Gold outlines = chords sharing 2 notes with the one you tapped.</p>` },
+  moves: { t: 'Moves: how one chord leads to the next', b: `
+    <p>Chords feel related when they share notes. Every card is a next chord, showing which notes <b>stay</b> and which <b>move</b> (● = notes kept).</p>
+    <ol><li>From C, tap <b>Relative minor</b>: C and E stay, G slides up to A. Hear it slide, see the shape move.</li>
+    <li>Keep tapping cards and you're writing a progression. Your path builds up at the top.</li>
+    <li>Tap <b>Use as progression</b>, then ▶ at the bottom to play it back.</li></ol>
+    <p class="tip">Fewer moving notes = smoother. "Up a fifth" then back "Down a fifth" is the strongest there-and-home move in music.</p>` },
+  ear: { t: 'Ear: train your pitch', b: `
+    <p><b>Notes</b>: name the note you hear (starts with 3, adds more at 90%). <b>Degrees</b>: hear a key, name the note's place in it. <b>Sing</b>: sing a note from memory and see how close you are. <b>Imagine</b>: hear it in your head, then check. <b>Progress</b>: your stats.</p>
+    <p class="tip">10 minutes a day beats an hour once a week. Do a Sing check first thing, before any music.</p>` },
+};
+let seenHelp = {};
+try { seenHelp = JSON.parse(localStorage.getItem('fretflow.help') || '{}'); } catch {}
+function showHelp(id = state.view) {
+  const h = HELP[id]; if (!h) return;
+  $('#help .sheet-body').innerHTML = `<h2>${h.t}</h2>${h.b}<button class="btn wide primary" data-close>Got it</button>`;
+  $('#help').classList.remove('hidden');
+  seenHelp[id] = 1; try { localStorage.setItem('fretflow.help', JSON.stringify(seenHelp)); } catch {}
+}
+function maybeHelp() { if (!seenHelp[state.view]) setTimeout(() => showHelp(), 250); }
+$('#helpBtn').addEventListener('click', () => showHelp());
+$('#help').addEventListener('click', e => { if (e.target.id === 'help' || e.target.closest('[data-close]')) $('#help').classList.add('hidden'); });
 
 // ---- header + settings sheet ------------------------------------------------
 function renderHeader() {

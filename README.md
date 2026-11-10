@@ -9,11 +9,13 @@ Plain HTML + JS modules, no build step, no dependencies, works offline once inst
 
 ## Chord views
 
+Every tab has a **?** guide (shown automatically the first time).
+
 | Tab | Idea |
 | --- | --- |
 | **Clock** | Chord builder on the colour wheel: tap notes one at a time (each plays alone), the shape grows and the chord is named, plus its colour-theory name (triad, complementary, analogous…). Tap the middle to hear them together. |
-| **Wheel** | Circle of fifths. Drag to turn it: the 7 chords in the lit wedge at the top are the key. Gold outlines = chords sharing 2 notes with the selected one; the middle flips major ⇄ relative minor. |
-| **Grid** | Tonnetz centred on your chord: each note appears once, repeats are faded ghosts. P/R/L neighbours share 2 notes; tap one to step there. |
+| **Wheel** | Circle of fifths. Drag to turn it: the lit wedge at the top is the key's chord family. A strip below shows the key's 7 notes and its 7 chords (with roles: home, away, tension…); a banner names the one note that changes when you turn to the next key. |
+| **Moves** | Your chord on the 12-note ring plus five next-chord cards (relative, flip major/minor, half-step neighbour, up/down a fifth), each saying which notes stay and which move. Tapping one slides the note on the ring and in sound; your path becomes a progression. |
 
 Tapping a chord plays its notes one by one, then together (Settings → *Tapping a chord plays*).
 Settings (tap the key): key, note names vs degrees, colour flash/hold/off, and the colour

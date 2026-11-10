@@ -5,7 +5,11 @@ import * as T from '../theory.js';
 import * as C from '../color.js';
 import { selectChord, playMidi } from '../actions.js';
 
-let el, svg, ring, rot = 0, anim = null, playhead = -1, drag = null, justDragged = false;
+let el, svg, ring, rot = 0, anim = null, playhead = -1, drag = null, justDragged = false, seenKey = null, toastT = 0;
+const ROLES = {
+  major: ['home', 'leads to V', 'soft', 'away', 'tension', 'sad home', 'very tense'],
+  minor: ['home', 'tense', 'bright', 'away', 'soft', 'lift', 'step up'],
+};
 
 const RINGS = [
   { fam: 'maj', type: 'maj', r1: 130, r2: 196, root: k => T.mod12(k * 7) },
@@ -82,6 +86,40 @@ function withSevenths(c) {
   return { root: c.root, type: { maj: 'dom7', min: 'min7', dim: 'm7b5' }[c.type] };
 }
 
+// The 7 notes of the key, and the 7 chords stacked from them (every other note).
+function strip(key) {
+  const flats = T.usesFlats(key);
+  const sc = T.scalePcs(key), dia = T.diatonic(key, state.sevenths);
+  const sel = T.chordPcs(state.chord);
+  const cols = sc.map((pc, i) => {
+    const c = dia[i], on = sel.includes(pc);
+    const isSel = T.sameChord(c, state.chord) || (state.chord.root === c.root && T.FAMILY[state.chord.type] === T.FAMILY[c.type]);
+    return `<div class="fcol">
+      <button class="fnote ${on ? 'on' : ''}" data-note="${pc}" style="--c:${C.noteColor(pc)}"><small>${i + 1}</small>${T.noteName(pc, flats)}${on ? `<i>${T.degreeInChord(pc, state.chord)}</i>` : ''}</button>
+      <button class="fchord ${isSel ? 'on' : ''}" data-fi="${i}" style="--c:${C.noteColor(c.root)}"><span class="rn">${T.romanFor(c, key)}</span><b>${T.chordName(c, flats)}</b><small>${ROLES[key.mode][i]}</small></button>
+    </div>`;
+  }).join('');
+  el.querySelector('.family').innerHTML = `<div class="fhead"><b>${T.keyName(key)}</b> uses these 7 notes · each chord below stacks every other one</div><div class="fgrid">${cols}</div>`;
+}
+
+// When the key changes, say exactly which note changed.
+function keyToast(key) {
+  const id = `${key.tonic}:${key.mode}`;
+  if (seenKey === null) { seenKey = { id, key }; return; }
+  if (seenKey.id === id) return;
+  const a = new Set(T.scalePcs(seenKey.key)), b = new Set(T.scalePcs(key));
+  const out = [...a].filter(p => !b.has(p)), inn = [...b].filter(p => !a.has(p));
+  const fa = T.usesFlats(seenKey.key), fb = T.usesFlats(key);
+  let msg;
+  if (!out.length) msg = `${T.keyName(key)} uses the same 7 notes as ${T.keyName(seenKey.key)}, just a different home.`;
+  else if (out.length === 1) msg = `${T.keyName(key)} = ${T.keyName(seenKey.key)} with one note changed: <b>${T.noteName(out[0], fa)} → ${T.noteName(inn[0], fb)}</b>`;
+  else msg = `${T.keyName(key)}: ${out.length} notes differ from ${T.keyName(seenKey.key)} (${out.map(p => T.noteName(p, fa)).join(' ')} → ${inn.map(p => T.noteName(p, fb)).join(' ')})`;
+  seenKey = { id, key };
+  const t = el.querySelector('.wtoast');
+  t.innerHTML = msg; t.classList.add('show');
+  clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), 3500);
+}
+
 function render(tempKey = null) {
   const key = tempKey || state.key, flats = T.usesFlats(key);
   const selPcs = new Set(T.chordPcs(state.chord));
@@ -113,6 +151,8 @@ function render(tempKey = null) {
   svg.querySelector('.hub-key').textContent = T.noteName(key.tonic, flats);
   svg.querySelector('.hub-mode').textContent = `${key.mode} ⇄`;
   if (!tempKey && !drag) turnTo(-kIdx * 30);
+  strip(key);
+  keyToast(key);
 }
 
 export default {
@@ -120,7 +160,9 @@ export default {
   mount(root) {
     el = root;
     el.innerHTML = `<div class="stage"></div>
-      <p class="hint"><b>Drag the wheel</b> to change key: the 7 lit chords at the top are the key's family. Tap a chord to hear its notes; <span class="k2">gold outlines</span> share 2 notes with it (smooth moves), faint ones share 1. Tap the middle to flip major ⇄ minor.</p>`;
+      <div class="wtoast"></div>
+      <p class="hint"><b>Drag</b> to change key · tap a chord · <span class="k2">gold</span> = shares 2 notes · middle flips major ⇄ minor</p>
+      <div class="family"></div>`;
     build();
     setRot(0);
     // drag anywhere on the wheel to turn it; the key is whatever lands in the lit wedge at the top
@@ -157,6 +199,10 @@ export default {
 
     el.addEventListener('click', e => {
       if (justDragged) return;
+      const fc = e.target.closest('[data-fi]');
+      if (fc) return selectChord(T.diatonic(state.key, state.sevenths)[+fc.dataset.fi]);
+      const fn = e.target.closest('[data-note]');
+      if (fn) return playMidi(60 + +fn.dataset.note, { dur: 1.4 });
       const g = e.target.closest('.seg');
       if (g) return selectChord(withSevenths(chordAt(+g.dataset.ring, +g.dataset.k)));
       if (e.target.closest('.hub, .hub-key, .hub-mode')) {
