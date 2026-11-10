@@ -7,7 +7,7 @@ import * as A from '../audio.js';
 import { data, save, logDeg } from './log.js';
 import { ring, seg, pct, PLAIN } from './ui.js';
 
-let el, q = null, answered = false, busy = false, sess = { n: 0, ok: 0 };
+let el, q = null, answered = false, busy = false, misses = [], sess = { n: 0, ok: 0 };
 const SOLFEGE = ['Do', 'Ra', 'Re', 'Me', 'Mi', 'Fa', 'Fi', 'So', 'Le', 'La', 'Te', 'Ti'];
 
 function fb(msg, cls = '') { const f = el.querySelector('.ear-fb'); f.innerHTML = msg; f.className = `ear-fb ${cls}`; }
@@ -41,7 +41,7 @@ function newQ(sameKey = false) {
   const pl = degreePool(key);
   const deg = pl[Math.floor(Math.random() * pl.length)];
   const midi = 60 + T.mod12(key.tonic + deg) + (Math.random() < 0.3 ? -12 : 0);
-  q = { key, deg, midi }; answered = false; busy = true;
+  q = { key, deg, midi }; answered = false; misses = []; busy = true;
   fb(`Key of <b>${T.keyName(key)}</b>…`);
   paint();
   const wait = cadence(key);
@@ -67,26 +67,45 @@ function resolve() {
 function guess(deg) {
   if (!q || busy) return newQ();
   if (answered) return A.playNote(q.midi - q.deg + deg, { dur: 1.2 });
-  answered = true;
+  if (misses.includes(deg)) return;
   const ok = deg === q.deg;
-  sess.n++; if (ok) sess.ok++;
-  logDeg(q.deg, deg);
+  if (!misses.length) { sess.n++; if (ok) sess.ok++; logDeg(q.deg, deg); } // only the first guess counts
   const nm = T.noteName(q.key.tonic + q.deg, T.usesFlats(q.key));
-  fb(ok ? `✓ ${T.DEGREE_NAMES[q.deg]} (${SOLFEGE[q.deg]}) = ${nm}` : `✗ It was <b>${T.DEGREE_NAMES[q.deg]}</b> (${SOLFEGE[q.deg]}) = ${nm}`, ok ? 'good' : 'bad');
+  if (!ok) {
+    // stay dark: hear the degree you picked, then the mystery note again
+    misses.push(deg);
+    A.stopAll();
+    A.playNote(q.midi - q.deg + deg, { dur: 0.9, vel: 0.45, source: 'mystery' });
+    setTimeout(() => A.playNote(q.midi, { dur: 2, source: 'mystery' }), 750);
+    fb(`Not ${T.DEGREE_NAMES[deg]}. Listen again and try another.`, 'bad');
+    paint(null, misses);
+    return;
+  }
+  answered = true;
+  fb(`✓ ${T.DEGREE_NAMES[q.deg]} (${SOLFEGE[q.deg]}) = ${nm}${misses.length ? `, found on try ${misses.length + 1}` : ''}`, 'good');
   resolve();
-  C.wash(C.noteWash(q.midi), false);
-  paint(q.deg, ok ? null : deg);
+  C.wash(C.noteWash(q.midi), false); // the colour is the reward
+  paint(q.deg, misses);
 }
 
-function paint(correct = null, wrong = null) {
+function giveUp() {
+  if (!q || answered || busy) return;
+  if (!misses.length) { sess.n++; logDeg(q.deg, -1); }
+  answered = true;
+  fb(`It was <b>${T.DEGREE_NAMES[q.deg]}</b> (${SOLFEGE[q.deg]}). Hear it walk home…`, 'bad');
+  resolve();
+  paint(null, misses, q.deg);
+}
+
+function paint(correct = null, wrong = [], shown = null) {
   const key = q?.key || keyFor();
   const allowed = new Set(degreePool(key));
   const items = [...Array(12).keys()].map(d => {
     const p = data.deg[d];
     return {
       k: d, label: T.DEGREE_NAMES[d], sub: `${SOLFEGE[d]}${p && p.n ? ' · ' + pct(p.ok, p.n) : ''}`,
-      color: answered && d === q?.deg ? C.noteColor(key.tonic + d) : PLAIN,
-      disabled: !allowed.has(d), cls: `${d === correct ? 'correct' : ''} ${d === wrong ? 'wrong' : ''}`,
+      color: d === correct ? C.noteColor(key.tonic + d) : PLAIN,
+      disabled: !allowed.has(d), cls: `${d === correct ? 'correct' : ''} ${wrong.includes(d) ? 'wrong' : ''} ${d === shown ? 'shown' : ''}`,
     };
   });
   el.querySelector('.ring-slot').innerHTML = ring(items, `<div class="ear-big">${pct(sess.ok, sess.n)}</div><div class="ear-small">${sess.ok}/${sess.n}</div>`);
@@ -101,6 +120,7 @@ function controls() {
       <button class="btn primary" data-act="new">▶ New</button>
       <button class="btn" data-act="again">↻ Again</button>
       <button class="btn ghost" data-act="key">Replay key</button>
+      <button class="btn ghost" data-act="giveup">Show answer</button>
     </div>`;
 }
 
@@ -118,6 +138,7 @@ export default {
       if (act === 'new') newQ(data.opts.degKey === 'same');
       if (act === 'again' && q && !busy) A.playNote(q.midi, { dur: 2, source: answered ? 'play' : 'mystery' });
       if (act === 'key' && q && !busy) cadence(q.key);
+      if (act === 'giveup') giveUp();
     });
     controls(); paint();
   },

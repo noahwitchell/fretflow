@@ -24,7 +24,7 @@ C.setColorMap(state.colorMap);
 // ---- colour wash -----------------------------------------------------------
 A.onNote((midi, source) => {
   if (state.colorMode === 'off') return;
-  if (source === 'mystery') return; // hidden quiz note ('mystery-show' still washes)
+  if (source === 'mystery') return; // quiz notes stay dark: colour only comes with the right answer
   C.wash(C.noteWash(midi), state.colorMode === 'hold');
 });
 on('chordSound', c => {

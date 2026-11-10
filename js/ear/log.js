@@ -11,7 +11,7 @@ const DEFAULT_ANCHORS = {
 
 const defaults = () => ({
   opts: {
-    pool: 'adaptive', range: '4', timbre: 'guitar', colour: 'auto', noise: true,
+    pool: 'adaptive', range: '4', timbre: 'guitar', noise: true,
     degKey: 'same', degSet: 'diatonic', singPool: 'adaptive',
   },
   level: 3,
@@ -104,13 +104,4 @@ export function logSing(pc, cents) {
   data.sing = data.sing.slice(-1000);
   const d = day(); d.sing[0]++; d.sing[1] += Math.abs(cents);
   save();
-}
-
-// "Auto" colour: show the colour for a note until you're reliable on it, then hide it.
-export function colourFor(pc) {
-  const o = data.opts.colour;
-  if (o === 'show') return true;
-  if (o === 'hide') return false;
-  const p = data.per[pc];
-  return !(p && p.n >= 10 && p.ok / p.n >= 0.8);
 }

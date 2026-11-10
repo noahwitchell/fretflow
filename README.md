@@ -27,11 +27,11 @@ harmony: neighbouring colours are a 5th apart, a key is one unbroken sweep, oppo
 
 - **Notes**: name the note. Answer buttons are plain grey (no colour-matching shortcut); the right one lights up after you answer. *Grow* starts with 3 far-apart notes and unlocks the next at 90% over 20 answers.
   Options: octave range, timbre (guitar / piano / pure / mix), noise between notes (stops you
-  working it out from the last note), colour on / *fade as I learn* / off. Answer time is shown; real pitch memory is instant.
+  working it out from the last note). Everything stays dark until you find the right note: the colour is the reward. A miss lets you retry (only the first guess is scored); Show answer gives up. Answer time is shown; real pitch memory is instant.
 - **Degrees**: a I–IV–V–I sets the key, a note plays, name its degree (1–7 or all 12, with solfège), then it resolves home.
 - **Sing**: recall a note with no reference, sing it; the mic measures how many cents off you are. Also a live tuner with colour. (iOS: the audio session switches to play-and-record while listening; 'playback' blocks the mic.)
 - **Imagine**: hear a note in your head, then tap to check. Includes your anchor library (a known sound per note).
-- **Progress**: day streak, minutes, 14-day chart, mix-ups grid, per-note accuracy/speed, and colour-on vs colour-off accuracy.
+- **Progress**: day streak, minutes, 14-day chart, mix-ups grid, per-note accuracy/speed.
 
 Background research: adults *can* sometimes learn absolute pitch (Wong et al. 2020: 6 of 43 reached
 90%+ after 12–40 h; Van Hedger et al. 2019), most people have latent pitch memory (Levitin 1994),

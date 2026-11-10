@@ -172,7 +172,8 @@ body.ear-mode #inspector, body.ear-mode #tray { display: none; }
 .ear-btn:active { transform: translate(-50%, -50%) scale(0.92); }
 .ear-btn:disabled { opacity: 0.18; }
 .ear-btn.correct { border-color: #fff; box-shadow: 0 0 0 4px var(--good); }
-.ear-btn.wrong { box-shadow: 0 0 0 4px var(--bad); }
+.ear-btn.wrong { box-shadow: 0 0 0 4px var(--bad); opacity: 0.55; }
+.ear-btn.shown { border-color: #fff; border-style: dashed; }
 .ear-center { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); text-align: center; }
 .ear-big { font-size: 34px; font-weight: 800; }
 .ear-small { font-size: 12px; color: var(--dim); }

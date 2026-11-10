@@ -1,12 +1,13 @@
-// Notes: absolute pitch quiz. Adaptive unlocking, noise between notes, varied timbre,
-// reaction time, and colour "training wheels" that fade as each note gets reliable.
+// Notes: absolute pitch quiz. Adaptive unlocking, noise between notes, varied timbre and
+// reaction time. Everything stays dark until you find the right note: the colour is the reward.
+// A miss lets you try again; only the first guess counts toward your score.
 import * as T from '../theory.js';
 import * as C from '../color.js';
 import * as A from '../audio.js';
-import { data, save, logNote, unlocked, levelProgress, colourFor, UNLOCK_ORDER } from './log.js';
+import { data, save, logNote, unlocked, levelProgress, UNLOCK_ORDER } from './log.js';
 import { ring, seg, pct, PLAIN } from './ui.js';
 
-let el, mystery = null, answered = false, t0 = 0, streak = 0, sess = { n: 0, ok: 0 }, last = null, busy = false;
+let el, mystery = null, answered = false, misses = [], t0 = 0, streak = 0, sess = { n: 0, ok: 0 }, last = null, busy = false;
 const RANGES = { '4': [4, 4], '3-5': [3, 5], '2-6': [2, 6] };
 const NATURALS = [0, 2, 4, 5, 7, 9, 11];
 
@@ -20,7 +21,8 @@ function pool() {
 function fb(msg, cls = '') { const f = el.querySelector('.ear-fb'); f.innerHTML = msg; f.className = `ear-fb ${cls}`; }
 
 function playMystery() {
-  A.playNote(mystery.midi, { source: mystery.colour ? 'mystery-show' : 'mystery', dur: 2.4, timbre: mystery.timbre });
+  // 'mystery' never lights the screen; the colour only comes with the right answer
+  A.playNote(mystery.midi, { source: 'mystery', dur: 2.4, timbre: mystery.timbre });
 }
 
 function newNote() {
@@ -32,15 +34,15 @@ function newNote() {
     oct = lo + Math.floor(Math.random() * (hi - lo + 1));
   } while (pl.length > 1 && last && pc === last.pc && guard++ < 20);
   const timbre = data.opts.timbre === 'mix' ? A.TIMBRES[Math.floor(Math.random() * 3)] : data.opts.timbre;
-  mystery = { pc, midi: (oct + 1) * 12 + pc, colour: colourFor(pc), timbre };
-  answered = false;
+  mystery = { pc, midi: (oct + 1) * 12 + pc, timbre };
+  answered = false; misses = [];
   const delay = data.opts.noise && last ? A.scramble(0.7) + 0.35 : 0;
   busy = true;
   fb(delay ? 'Clearing your ears…' : '');
   setTimeout(() => {
     busy = false;
     playMystery(); t0 = performance.now();
-    fb(`Which note? <span class="dim">${mystery.timbre}${mystery.colour ? ' · colour on' : ''}</span>`);
+    fb(`Which note? <span class="dim">${mystery.timbre}</span>`);
     paint();
   }, delay * 1000);
   paint();
@@ -48,31 +50,57 @@ function newNote() {
 
 function guess(pc) {
   if (!mystery || busy) return newNote();
-  if (answered) return A.playNote(60 + pc, { timbre: mystery.timbre });
-  const rt = performance.now() - t0;
+  if (answered) return A.playNote(60 + pc, { timbre: mystery.timbre }); // free play after solving
   const want = mystery.pc, ok = pc === want;
+  if (misses.includes(pc)) return;
+  const first = misses.length === 0;
+  const rt = performance.now() - t0;
+  let newPc = null;
+  if (first) {
+    sess.n++; if (ok) sess.ok++;
+    streak = ok ? streak + 1 : 0;
+    newPc = logNote(want, pc, rt, false);
+  }
+  if (!ok) {
+    // stay dark: hear what you picked, then the mystery note again, and try again
+    misses.push(pc);
+    A.stopAll();
+    A.playNote(mystery.midi - want + pc, { dur: 0.9, vel: 0.45, timbre: mystery.timbre, source: 'mystery' });
+    setTimeout(() => playMystery(), 750);
+    const anchor = data.anchors[want];
+    fb(`Not ${T.noteName(pc)}. Listen again and try another.${misses.length >= 2 && anchor ? `<br><span class="dim">Hint, your anchor: ${anchor}</span>` : ''}`, 'bad');
+    paint(null, misses);
+    return;
+  }
+  // right: the reward. Colour floods in with the note.
   answered = true; last = mystery;
-  sess.n++; if (ok) sess.ok++;
-  streak = ok ? streak + 1 : 0;
-  const newPc = logNote(want, pc, rt, mystery.colour);
+  A.stopAll();
   A.playNote(mystery.midi, { dur: 2, timbre: mystery.timbre, source: 'reveal' });
   const speed = rt < 1500 ? 'fast' : rt < 3000 ? 'ok' : 'slow';
-  const anchor = data.anchors[want];
-  if (ok) fb(`✓ ${T.midiName(mystery.midi)} <span class="rt ${speed}">${(rt / 1000).toFixed(1)}s</span>`, 'good');
-  else fb(`✗ It was <b>${T.midiName(mystery.midi)}</b> (you said ${T.noteName(pc)})${anchor ? `<br><span class="dim">Anchor: ${anchor}</span>` : ''}`, 'bad');
+  fb(first ? `✓ ${T.midiName(mystery.midi)} <span class="rt ${speed}">${(rt / 1000).toFixed(1)}s</span>` : `✓ ${T.midiName(mystery.midi)}, found on try ${misses.length + 1}`, 'good');
   if (newPc !== null) setTimeout(() => fb(`🎉 Unlocked <b>${T.noteName(newPc)}</b>. Listen to it a few times first.`, 'good'), 900);
-  paint(want, ok ? null : pc);
-  if (ok && newPc === null) setTimeout(() => { if (answered && el.classList.contains('on')) newNote(); }, 1300);
+  paint(want, misses);
+  if (newPc === null) setTimeout(() => { if (answered && el.classList.contains('on')) newNote(); }, 1400);
 }
 
-function paint(correct = null, wrong = null) {
+function giveUp() {
+  if (!mystery || answered || busy) return;
+  if (!misses.length) { sess.n++; streak = 0; logNote(mystery.pc, -1, performance.now() - t0, false); }
+  answered = true; last = mystery;
+  A.stopAll();
+  A.playNote(mystery.midi, { dur: 2, timbre: mystery.timbre, source: 'mystery' }); // no colour for a give-up
+  fb(`It was <b>${T.midiName(mystery.midi)}</b>. No colour this time: find it next round.`, 'bad');
+  paint(null, misses, mystery.pc);
+}
+
+function paint(correct = null, wrong = [], shown = null) {
   const allowed = new Set(pool());
   const items = [...Array(12).keys()].map(pc => {
     const p = data.per[pc];
     return {
       k: pc, label: T.noteName(pc), color: pc === correct ? C.noteColor(pc) : PLAIN, disabled: !allowed.has(pc), // plain until answered: no colour-matching shortcut
       sub: p && p.n ? pct(p.ok, p.n) : '',
-      cls: `${pc === correct ? 'correct' : ''} ${pc === wrong ? 'wrong' : ''}`,
+      cls: `${pc === correct ? 'correct' : ''} ${wrong.includes(pc) ? 'wrong' : ''} ${pc === shown ? 'shown' : ''}`,
       slot: C.wheelPos(pc),
     };
   });
@@ -91,13 +119,13 @@ function controls() {
     <details class="more"><summary>Options</summary>
       <div class="row">${seg('range', [['4', 'Octave 4'], ['3-5', '3–5'], ['2-6', '2–6']], o.range)}</div>
       <div class="row">${seg('timbre', [['guitar', 'Guitar'], ['piano', 'Piano'], ['sine', 'Pure'], ['mix', 'Mix']], o.timbre)}</div>
-      <div class="row">${seg('colour', [['show', 'Colour on'], ['auto', 'Fade as I learn'], ['hide', 'No colour']], o.colour)}</div>
       <div class="row">${seg('noise', [['true', 'Noise between notes'], ['false', 'No noise']], o.noise)}</div>
-      <p class="dim small">Noise wipes the last note from memory so you name each one on its own, not relative to the previous. "Fade" hides a note's colour once you're 80%+ on it.</p>
+      <p class="dim small">Noise wipes the last note from memory so you name each one on its own, not relative to the previous. The screen stays dark until you find the note; a miss lets you try again, but only your first guess is scored.</p>
     </details>
     <div class="row">
       <button class="btn primary" data-act="new">▶ New note</button>
       <button class="btn" data-act="again">↻ Again</button>
+      <button class="btn ghost" data-act="giveup">Show answer</button>
       <button class="btn ghost" data-act="hearall">Hear my notes</button>
     </div>`;
 }
@@ -120,6 +148,7 @@ export default {
       const act = e.target.closest('[data-act]')?.dataset.act;
       if (act === 'new') newNote();
       if (act === 'again' && mystery && !busy) playMystery();
+      if (act === 'giveup') giveUp();
       if (act === 'hearall') pool().forEach((pc, i) => A.playNote(60 + pc, { at: i * 0.6, dur: 1, timbre: data.opts.timbre === 'mix' ? 'guitar' : data.opts.timbre }));
     });
     controls(); paint();

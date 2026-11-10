@@ -75,8 +75,6 @@ function confusion() {
 
 function render() {
   const d = day();
-  let on = [0, 0], off = [0, 0];
-  Object.values(data.days).forEach(x => { on[0] += x.cOn[0]; on[1] += x.cOn[1]; off[0] += x.cOff[0]; off[1] += x.cOff[1]; });
   const mins = Math.round(d.secs / 60);
   el.innerHTML = `
     <div class="pcards">
@@ -86,12 +84,6 @@ function render() {
       <div class="pcard"><b>${d.ok ? (d.rt / d.ok / 1000).toFixed(1) + 's' : '–'}</b><span>avg answer time</span></div>
     </div>
     <h4>Last 14 days</h4>${chart()}
-    <h4>Does colour help?</h4>
-    <div class="pcards two">
-      <div class="pcard"><b>${pct(on[1], on[0])}</b><span>with colour (${on[0]})</span></div>
-      <div class="pcard"><b>${pct(off[1], off[0])}</b><span>without colour (${off[0]})</span></div>
-    </div>
-    <p class="dim small">Uses Notes-mode answers. Compare once both sides have 50+ answers. "Fade as I learn" fills both sides naturally.</p>
     <h4>Mix-ups</h4>${confusion()}
     <h4>Per note</h4>
     <div class="pernote">${[...Array(12).keys()].map(pc => { const p = data.per[pc]; return `<div style="--c:${C.noteColor(pc)}"><b>${T.noteName(pc)}</b><span>${p ? pct(p.ok, p.n) : '–'}</span><small>${p && p.ok ? (p.rt / p.ok / 1000).toFixed(1) + 's' : ''}</small></div>`; }).join('')}</div>
