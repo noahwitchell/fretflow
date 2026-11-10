@@ -12,7 +12,7 @@ const DEFAULT_ANCHORS = {
 const defaults = () => ({
   opts: {
     pool: 'adaptive', range: '4', timbre: 'guitar', noise: true,
-    degKey: 'same', degSet: 'diatonic', singPool: 'adaptive',
+    degKey: 'same', degSet: 'diatonic', singPool: 'adaptive', singTol: '30',
   },
   level: 3,
   sinceLevel: 0,

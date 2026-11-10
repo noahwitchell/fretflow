@@ -8,17 +8,29 @@ import { startMic, stopMic, micActive, centsFromPc, freqToMidi, getMicStream } f
 import { micSession } from '../audio.js';
 import { seg } from './ui.js';
 
-let el, target = null, mode = 'idle', samples = [], lastF = null, lastWash = 0;
+// One continuous session: the mic stays on, you get a note, you sing and can slide into it.
+// Holding within tolerance for ~0.5 s counts as found: colour reward, the real note, next note.
+// Your FIRST steady pitch is what gets logged: that's the honest measure of your inner anchor.
+let el, target = null, mode = 'idle', phase = 'listen', lastF = null, lastWash = 0;
+let frames = [], voiced = 0, first = null, tStart = 0, gateUntil = 0, nextT = 0, sess = { n: 0, firstAbs: 0, firstN: 0 };
+const tol = () => +(data.opts.singTol || 30);
 
 function fb(msg, cls = '') { const f = el.querySelector('.ear-fb'); f.innerHTML = msg; f.className = `ear-fb ${cls}`; }
 
 function pickTarget() {
   const pl = data.opts.singPool === 'adaptive' ? unlocked() : [...Array(12).keys()];
   let pc; do { pc = pl[Math.floor(Math.random() * pl.length)]; } while (pl.length > 1 && pc === target);
-  target = pc; mode = 'ready'; samples = [];
+  return pc;
+}
+
+function nextNote() {
+  clearTimeout(nextT);
+  target = pickTarget();
+  frames = []; voiced = 0; first = null; phase = 'listen';
+  tStart = performance.now(); gateUntil = tStart + 300;
+  const anchor = data.anchors[target];
+  fb(`Sing <b>${T.noteName(target)}</b> from memory, any octave. Slide until you lock on.${anchor ? `<br><span class="dim">Anchor: ${anchor}</span>` : ''}`);
   paint();
-  const anchor = data.anchors[pc];
-  fb(`Sing or hum <b>${T.noteName(pc)}</b> from memory, any octave.${anchor ? `<br><span class="dim">Anchor: ${anchor}</span>` : ''}`);
 }
 
 // ---- microphone permission ---------------------------------------------------
@@ -43,7 +55,7 @@ async function askMic() {
     s.getTracks().forEach(t => t.stop());
     micSession(false);
     micState = 'granted';
-    fb('Microphone on. Tap 🎤 Sing it when you have a note.', 'good');
+    fb('Microphone on. Tap ▶ Start singing.', 'good');
   } catch (err) {
     micState = classify(err);
   }
@@ -93,52 +105,97 @@ function paintMic() {
     <button class="btn primary" data-act="allow">🎤 Allow microphone</button></div>`;
 }
 
-async function listen(free = false) {
+async function ensureMic() {
   try {
     if (!micActive()) await startMic(onPitch);
     micState = 'granted'; paintMic();
+    return true;
   } catch (err) {
-    micState = classify(err);
-    paintMic();
+    micState = classify(err); paintMic();
     fb('The microphone is blocked: see the steps above.', 'bad');
-    return;
+    return false;
   }
-  mode = free ? 'free' : 'listening'; samples = [];
-  if (!free) fb('Listening… hold the note steady.');
-  else fb('Live: sing anything and watch its note and colour.');
-  paint();
 }
 
-function stop() { stopMic(); if (mode !== 'done') mode = target != null ? 'ready' : 'idle'; paint(); }
+async function startSession() {
+  if (!(await ensureMic())) return;
+  mode = 'session'; sess = { n: 0, firstAbs: 0, firstN: 0 };
+  nextNote();
+}
+async function startFree() {
+  if (!(await ensureMic())) return;
+  clearTimeout(nextT);
+  mode = 'free'; target = null;
+  fb('Live: sing anything and watch its note and colour.');
+  paint();
+}
+function stop() { clearTimeout(nextT); stopMic(); mode = 'idle'; target = null; paint(); fb('Stopped. Tap ▶ Start singing for another round.'); }
+
+function median(a) { const s = [...a].sort((x, y) => x - y); return s[s.length >> 1]; }
 
 function onPitch(f) {
   lastF = f;
   meter(f);
-  if (!f) return;
   const now = performance.now();
-  if (now - lastWash > 180) { lastWash = now; C.wash(C.noteWash(Math.round(freqToMidi(f))), false); }
-  if (mode !== 'listening') return;
+  if (mode === 'free') {
+    if (f && now - lastWash > 180) { lastWash = now; C.wash(C.noteWash(Math.round(freqToMidi(f))), false); }
+    return;
+  }
+  if (mode !== 'session' || phase !== 'listen' || now < gateUntil) return;
+  if (!f) { voiced = 0; return; }
+  voiced++;
   const c = centsFromPc(f, target);
-  samples.push(c);
-  // lock in once we have ~0.8 s of steady pitch
-  if (samples.length >= 24) {
-    const tail = samples.slice(-24).sort((a, b) => a - b);
-    const med = tail[12];
-    if (tail[20] - tail[3] < 60) finish(med, f);
+  frames.push(c); frames = frames.slice(-40);
+
+  // first steady pitch (~0.25 s) = what your memory gave you, before any correcting
+  if (first === null && voiced >= 8) {
+    const last8 = frames.slice(-8);
+    if (Math.max(...last8) - Math.min(...last8) < 60) {
+      first = median(last8);
+      logSing(target, first);
+      sess.firstAbs += Math.abs(first); sess.firstN++;
+    }
+  }
+  // found: ~0.5 s held inside the tolerance band
+  if (voiced >= 15 && frames.slice(-15).every(x => Math.abs(x) <= tol())) return found(f, median(frames.slice(-15)));
+
+  // coaching while you slide
+  if (voiced >= 5) {
+    const m = median(frames.slice(-5));
+    const hint = Math.abs(m) <= tol() ? 'hold it…' : m < 0 ? `a little flat: go <b>up</b> ↑` : `a little sharp: go <b>down</b> ↓`;
+    const firstTxt = typeof first === 'number' ? `<span class="dim">first try ${first > 0 ? '+' : ''}${Math.round(first)}¢ · </span>` : '';
+    fb(`${firstTxt}${hint}`, Math.abs(m) <= tol() ? 'good' : '');
   }
 }
 
-function finish(cents, f) {
-  mode = 'done'; stopMic();
-  logSing(target, cents);
-  const abs = Math.abs(cents);
-  const verdict = abs <= 25 ? ['Spot on', 'good'] : abs <= 60 ? ['Close', 'good'] : abs <= 150 ? ['About a semitone off', 'bad'] : ['Off', 'bad'];
-  fb(`${verdict[0]}: <b>${cents > 0 ? '+' : ''}${Math.round(cents)} cents</b> ${cents > 0 ? '(sharp)' : cents < 0 ? '(flat)' : ''}<br><span class="dim">Here's the real ${T.noteName(target)}…</span>`, verdict[1]);
-  // play the real note in the octave you sang
-  const sung = freqToMidi(f);
-  const real = Math.round(sung - cents / 100);
-  A.playNote(real, { at: 0.3, dur: 2.2 });
-  paint();
+function found(f, cents) {
+  phase = 'reward'; sess.n++;
+  const real = Math.round(freqToMidi(f) - cents / 100); // the real note in the octave you sang
+  const secs = ((performance.now() - tStart) / 1000).toFixed(1);
+  const ft = typeof first === 'number' ? `First try was <b>${first > 0 ? '+' : ''}${Math.round(first)}¢</b>` : 'Found with a hint';
+  fb(`✓ Locked on ${T.noteName(target)} in ${secs}s. ${ft}. Here's the real one…`, 'good');
+  C.wash(C.noteWash(real), false); // the colour is the reward
+  gateUntil = performance.now() + 2700; // don't let the mic hear the speaker
+  A.playNote(real, { at: 0.15, dur: 2, source: 'reveal' });
+  paint(true);
+  nextT = setTimeout(() => { if (mode === 'session') nextNote(); }, 2600);
+}
+
+function hearIt() {
+  if (mode !== 'session' || phase !== 'listen') return;
+  if (first === null) first = 'hint'; // a hint before you sang: no memory score this round
+  gateUntil = performance.now() + 2300;
+  A.playNote(60 + target - (target > 6 ? 12 : 0), { dur: 2, source: 'mystery' });
+  fb(`Here's ${T.noteName(target)}: now sing it back and lock on.`);
+}
+
+function skip() {
+  if (mode !== 'session') return;
+  phase = 'reward';
+  gateUntil = performance.now() + 2500;
+  A.playNote(60 + target - (target > 6 ? 12 : 0), { dur: 2, source: 'mystery' });
+  fb(`That was ${T.noteName(target)}. Next one coming…`, 'bad');
+  nextT = setTimeout(() => { if (mode === 'session') nextNote(); }, 2300);
 }
 
 function meter(f) {
@@ -146,49 +203,57 @@ function meter(f) {
   if (!m) return;
   if (!f) { m.querySelector('.m-note').textContent = '–'; return; }
   const midi = freqToMidi(f), near = Math.round(midi);
+  // in the test, the detected note stays uncoloured until you lock on
   m.querySelector('.m-note').textContent = T.midiName(near);
-  m.querySelector('.m-note').style.color = C.midiColor(near);
+  m.querySelector('.m-note').style.color = mode === 'free' ? C.midiColor(near) : '';
   const cents = mode === 'free' || target == null ? (midi - near) * 100 : centsFromPc(f, target);
   const clamp = Math.max(-300, Math.min(300, cents));
   m.querySelector('.needle').style.left = `${50 + (clamp / 300) * 50}%`;
   m.querySelector('.m-cents').textContent = `${cents > 0 ? '+' : ''}${Math.round(cents)}¢${mode === 'free' ? '' : target != null ? ` from ${T.noteName(target)}` : ''}`;
 }
 
-function paint() {
+function paint(lit = false) {
   const o = data.opts;
   const recent = data.sing.slice(-10);
   const avg = recent.length ? Math.round(recent.reduce((s, r) => s + Math.abs(r.cents), 0) / recent.length) : null;
+  const btns = mode === 'session'
+    ? `<button class="btn" data-act="hear">Hear it</button><button class="btn" data-act="skip">Skip</button><button class="btn ghost" data-act="stop">■ Stop</button>`
+    : mode === 'free'
+      ? `<button class="btn primary" data-act="start">▶ Start singing</button><button class="btn ghost" data-act="stop">■ Stop</button>`
+      : `<button class="btn primary" data-act="start">▶ Start singing</button><button class="btn ghost" data-act="free">Live tuner</button>`;
   el.querySelector('.ear-controls').innerHTML = `
     <div class="row">${seg('singPool', [['adaptive', 'My unlocked notes'], ['all', 'All 12']], o.singPool)}</div>
-    <div class="row">
-      <button class="btn primary" data-act="target">${target == null ? '▶ Give me a note' : '▶ Next note'}</button>
-      ${target != null && mode !== 'listening' ? '<button class="btn" data-act="listen">🎤 Sing it</button>' : ''}
-      ${micActive() ? '<button class="btn" data-act="stop">■ Stop mic</button>' : '<button class="btn ghost" data-act="free">Live tuner</button>'}
-    </div>`;
+    <div class="row">${seg('singTol', [['15', 'Strict ±15¢'], ['30', 'Normal ±30¢'], ['50', 'Easy ±50¢']], o.singTol || 30)}</div>
+    <div class="row">${btns}</div>`;
+  const zone = (tol() / 300) * 50;
   el.querySelector('.sing-stage').innerHTML = `
-    <div class="target" style="--c:${target != null ? C.noteColor(target) : 'var(--line)'}">${target != null ? T.noteName(target) : '?'}</div>
-    <div class="meter"><div class="m-note">–</div><div class="bar"><span class="mid"></span><span class="needle"></span></div><div class="m-cents"></div></div>
-    <div class="dim small">${avg != null ? `Last ${recent.length}: average ${avg}¢ off. Under 50¢ means your inner note is within a quarter-tone.` : 'No sung notes yet. Do this first thing, before you hear any music: that tests your memory, not your last song.'}</div>`;
+    <div class="target ${lit ? 'lit' : ''}" style="--c:${lit && target != null ? C.noteColor(target) : 'hsla(222,14%,24%,1)'}">${target != null ? T.noteName(target) : mode === 'free' ? '♪' : '?'}</div>
+    <div class="meter"><div class="m-note">–</div><div class="bar"><span class="zone" style="left:${50 - zone}%;width:${zone * 2}%"></span><span class="mid"></span><span class="needle"></span></div><div class="m-cents"></div></div>
+    <div class="dim small">${mode === 'session' && sess.n ? `This session: ${sess.n} found${sess.firstN ? ` · first tries average ${Math.round(sess.firstAbs / sess.firstN)}¢ off` : ''}. ` : ''}${avg != null ? `Last ${recent.length} first tries: ${avg}¢ average.` : 'Do this first thing, before you hear any music: that tests your memory, not your last song.'}</div>`;
   meter(lastF);
 }
+
+// for testing: feed a frequency as if the mic heard it
+export const _feed = f => onPitch(f);
 
 export default {
   id: 'sing', label: 'Sing',
   mount(root) {
     el = root;
-    el.innerHTML = `<div class="mic-box"></div><div class="ear-controls"></div><div class="sing-stage"></div><div class="ear-fb">Recall a note with no reference, sing it, and see how close your inner pitch is.</div>`;
+    el.innerHTML = `<div class="mic-box"></div><div class="ear-controls"></div><div class="sing-stage"></div><div class="ear-fb">Tap ▶ Start singing: notes keep coming as you find them. Sing from memory, then slide until you lock on.</div>`;
     el.addEventListener('click', e => {
       const sc = e.target.closest('.seg-ctl[data-name] button');
-      if (sc) { data.opts.singPool = sc.dataset.v; save(); paint(); return; }
+      if (sc) { data.opts[sc.closest('.seg-ctl').dataset.name] = sc.dataset.v; save(); paint(); return; }
       const act = e.target.closest('[data-act]')?.dataset.act;
-      if (act === 'target') { if (micActive()) stopMic(); pickTarget(); }
       if (act === 'allow') askMic();
-      if (act === 'listen') listen(false);
-      if (act === 'free') listen(true);
+      if (act === 'start') startSession();
+      if (act === 'free') startFree();
+      if (act === 'hear') hearIt();
+      if (act === 'skip') skip();
       if (act === 'stop') stop();
     });
     paint();
   },
   show() { paint(); checkMic(); },
-  hide() { if (micActive()) stop(); },
+  hide() { if (micActive() || mode !== 'idle') stop(); },
 };

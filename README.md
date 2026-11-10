@@ -29,7 +29,7 @@ harmony: neighbouring colours are a 5th apart, a key is one unbroken sweep, oppo
   Options: octave range, timbre (guitar / piano / pure / mix), noise between notes (stops you
   working it out from the last note). Everything stays dark until you find the right note: the colour is the reward. A miss lets you retry (only the first guess is scored); Show answer gives up. Answer time is shown; real pitch memory is instant.
 - **Degrees**: a I–IV–V–I sets the key, a note plays, name its degree (1–7 or all 12, with solfège), then it resolves home.
-- **Sing**: recall a note with no reference, sing it; the mic measures how many cents off you are. Also a live tuner with colour. (iOS: the audio session switches to play-and-record while listening; 'playback' blocks the mic.)
+- **Sing**: one continuous session: a note appears, you sing from memory and slide until you hold it within tolerance (±15/30/50¢) for ~0.5 s; the colour reward and the real note follow, then the next note. Your first steady pitch is logged as the memory score. Hear it / Skip when stuck. Also a live tuner with colour. (iOS: the audio session switches to play-and-record while listening; 'playback' blocks the mic.)
 - **Imagine**: hear a note in your head, then tap to check. Includes your anchor library (a known sound per note).
 - **Progress**: day streak, minutes, 14-day chart, mix-ups grid, per-note accuracy/speed.
 

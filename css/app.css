@@ -239,10 +239,12 @@ p.small { margin: 6px 0; text-align: center; }
 
 /* sing */
 .sing-stage { display: flex; flex-direction: column; align-items: center; gap: 12px; width: 100%; padding: 8px 0; }
-.sing-stage .target { width: 120px; height: 120px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 44px; font-weight: 800; background: var(--c); box-shadow: 0 0 40px var(--c); text-shadow: 0 2px 6px rgba(0,0,0,0.5); }
+.sing-stage .target { width: 120px; height: 120px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 44px; font-weight: 800; background: var(--c); text-shadow: 0 2px 6px rgba(0,0,0,0.5); transition: background 0.3s, box-shadow 0.3s; }
+.sing-stage .target.lit { box-shadow: 0 0 50px var(--c); }
 .meter { width: 100%; max-width: 380px; text-align: center; }
 .m-note { font-size: 28px; font-weight: 800; min-height: 36px; }
 .bar { position: relative; height: 14px; border-radius: 7px; margin: 6px 0; background: linear-gradient(90deg, rgba(248,113,113,0.5), rgba(245,181,68,0.4) 35%, rgba(74,222,128,0.6) 50%, rgba(245,181,68,0.4) 65%, rgba(248,113,113,0.5)); }
+.bar .zone { position: absolute; top: -2px; bottom: -2px; border-radius: 6px; background: rgba(74,222,128,0.35); border: 1px solid rgba(74,222,128,0.8); }
 .bar .mid { position: absolute; left: 50%; top: -3px; bottom: -3px; width: 2px; background: #fff; }
 .bar .needle { position: absolute; left: 50%; top: -6px; width: 6px; height: 26px; margin-left: -3px; border-radius: 3px; background: #fff; box-shadow: 0 0 8px #fff; transition: left 0.08s; }
 .m-cents { font-size: 13px; color: var(--dim); min-height: 18px; }
