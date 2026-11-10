@@ -58,3 +58,59 @@ export function clearWash() {
   el.classList.remove('on');
   el.style.opacity = '0';
 }
+
+// ---- colour-theory layer ---------------------------------------------------
+export const getMap = () => map;
+// slot (0-11) of a note around the current colour wheel
+export const wheelPos = pc => (map === 'fifths' ? fifthsIndex(pc) : mod12(pc));
+
+const near = (a, b, tol = 22) => Math.abs(a - b) <= tol;
+const hueDist = (a, b) => { const d = Math.abs(a - b) % 360; return d > 180 ? 360 - d : d; };
+
+// Name the colour-theory scheme a set of notes makes on the wheel.
+export function schemeFor(pcs) {
+  const hs = [...new Set(pcs.map(mod12))].map(hue).sort((a, b) => a - b);
+  const n = hs.length;
+  if (n === 1) return { name: 'Monochrome', blurb: 'One colour.' };
+  if (n === 2) {
+    const d = hueDist(hs[0], hs[1]);
+    if (d <= 45) return { name: 'Analogous pair', blurb: 'Neighbouring colours, blending softly.' };
+    if (d >= 150) return { name: 'Complementary', blurb: 'Opposite colours: maximum contrast.' };
+    return { name: 'Contrasting pair', blurb: `Colours ${Math.round(d)}° apart.` };
+  }
+  const gaps = hs.map((h, i) => (i === n - 1 ? hs[0] + 360 - h : hs[i + 1] - h));
+  const maxGap = Math.max(...gaps), span = 360 - maxGap;
+  const even = 360 / n;
+  if (gaps.every(g => near(g, even, 20))) {
+    return {
+      3: { name: 'Triad', blurb: 'Three colours evenly spaced: balanced, with no colour in charge.' },
+      4: { name: 'Square', blurb: 'Four colours evenly spaced: every colour has an equal rival.' },
+    }[n] || { name: 'Even spread', blurb: 'Colours spaced evenly around the wheel.' };
+  }
+  if (span <= 100) return { name: 'Analogous', blurb: 'A tight run of neighbouring colours: unified and calm.' };
+  if (n === 3) {
+    const s = [...gaps].sort((a, b) => a - b);
+    if (s[0] <= 75 && near(s[1], s[2], 35) && s[1] >= 120) return { name: 'Split complementary', blurb: 'One colour set against the two neighbours of its opposite.' };
+  }
+  if (n === 4 && near(gaps[0], gaps[2], 20) && near(gaps[1], gaps[3], 20)) {
+    return { name: 'Rectangle', blurb: 'Two complementary pairs.' };
+  }
+  // a tight cluster plus one outlier
+  for (let i = 0; i < n; i++) {
+    const rest = hs.filter((_, j) => j !== i);
+    const rg = rest.map((h, k) => (k === rest.length - 1 ? rest[0] + 360 - h : rest[k + 1] - h));
+    const rspan = 360 - Math.max(...rg);
+    const away = Math.min(...rest.map(h => hueDist(h, hs[i])));
+    if (rspan <= 75 && away >= 75) return { name: 'Analogous + accent', blurb: 'A family of neighbouring colours with one contrasting accent.' };
+  }
+  return { name: 'Wide spread', blurb: `Colours spread across ${Math.round(span)}° of the wheel.` };
+}
+
+// Soft background built from the key's colours.
+export function keyGlow(pcs) {
+  const n = pcs.length;
+  return pcs.map((pc, i) => {
+    const x = (i / (n - 1)) * 100;
+    return `radial-gradient(45% 35% at ${x.toFixed(0)}% ${i % 2 ? 100 : 0}%, ${noteColor(pc, 4, 0.13)} 0%, transparent 100%)`;
+  }).join(', ');
+}

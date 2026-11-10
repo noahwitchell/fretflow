@@ -1,38 +1,49 @@
 # FretFlow
 
-A phone-first companion for hearing and seeing harmony: how chords are built, how they
-move, and ear / pitch training with a synesthesia colour layer (every note has a colour).
+**Open on your phone: https://noahwitchell.github.io/fretflow/**
+iPhone: Safari → Share → *Add to Home Screen*. Android: Chrome → ⋮ → *Install app*.
 
-Plain HTML + JS modules, no build step, no dependencies. Installs to a phone home screen
-as a web app (PWA).
+A companion for hearing and seeing harmony: how chords are built, how they move, and
+ear / pitch training with a synesthesia colour layer (every note has a colour).
+Plain HTML + JS modules, no build step, no dependencies, works offline once installed.
 
-## Run it
-
-```bash
-python3 -m http.server 5181
-```
-then open http://localhost:5181 (modules don't load from `file://`).
-
-## Views (interface experiments)
+## Chord views
 
 | Tab | Idea |
 | --- | --- |
-| **Clock** | 12 notes on a clock face. A chord is a shape: every major chord is the same triangle, minor is its mirror, transposing = rotating. Side numbers = half-steps. |
-| **Wheel** | Circle of fifths. Majors / relative minors / diminished rings; the key lights up as a wedge of 7 chords and the wheel turns to put the key on top. `7ths` turns every chord into its 7th. |
-| **Grid** | Tonnetz. → 5th, ↗ major 3rd, ↖ minor 3rd. Triangles are triads (▲ major, ▼ minor); edge-sharing triangles share 2 notes. P/R/L tag the one-note moves. Progressions draw a path. |
-| **Neck** | Chord tones across 15 frets, scale dots for the rest of the key. Vertical chord-chart layout on phones. |
-| **Ear** | Quiz (mystery note → name it; per-note accuracy kept) and Imagine (hear it in your head, tap to check). Notes on a ring so pitch, position and colour line up. |
+| **Clock** | The notes on the colour wheel. A chord is a shape (major = the same triangle in every key, minor its mirror) and gets a colour-theory name: triad, complementary, analogous, split complementary… |
+| **Wheel** | Circle of fifths. The key lights up as a wedge of 7 chords; the wheel turns to put the key on top. |
+| **Grid** | Tonnetz: triangles are chords, edge-sharing chords share 2 notes; P/R/L mark one-note moves; progressions draw a path. |
+| **Neck** | Chord tones over 15 frets, the rest of the key as small dots. |
 
-Shared across views: the chord panel (tones, degrees, quality chips to rebuild the chord),
-the progression tray (+ Add, play/loop with voice-led voicings), and the settings sheet
-(key, labels note/degree, colour flash/hold/off, colour map chromatic/by-fifths).
+Settings (tap the key): key, note names vs degrees, colour flash/hold/off, and the colour
+map. **Chromatic** (C red → B rose) or **By fifths**, where colour harmony lines up with musical
+harmony: neighbouring colours are a 5th apart, a key is one unbroken sweep, opposite = tritone.
 
-## Code map
+## Ear training (Ear tab)
 
-- `js/theory.js` notes, chord types, keys, roman numerals, PLR neighbours, voice leading
-- `js/color.js` pitch → colour maps and the background wash
-- `js/audio.js` Web Audio pluck synth + reverb
-- `js/store.js` state (saved to localStorage) + event bus
-- `js/actions.js` select/play chord, progression playback
-- `js/views/*.js` one file per tab, each `{ id, mount(el), render() }`
-- `legacy/` the original Antigravity single-file version (reference only)
+- **Notes**: name the note. *Grow* starts with 3 far-apart notes and unlocks the next at 90% over 20 answers.
+  Options: octave range, timbre (guitar / piano / pure / mix), noise between notes (stops you
+  working it out from the last note), colour on / *fade as I learn* / off. Answer time is shown; real pitch memory is instant.
+- **Degrees**: a I–IV–V–I sets the key, a note plays, name its degree (1–7 or all 12, with solfège), then it resolves home.
+- **Sing**: recall a note with no reference, sing it; the mic measures how many cents off you are. Also a live tuner with colour.
+- **Imagine**: hear a note in your head, then tap to check. Includes your anchor library (a known sound per note).
+- **Progress**: day streak, minutes, 14-day chart, mix-ups grid, per-note accuracy/speed, and colour-on vs colour-off accuracy.
+
+Background research: adults *can* sometimes learn absolute pitch (Wong et al. 2020: 6 of 43 reached
+90%+ after 12–40 h; Van Hedger et al. 2019), most people have latent pitch memory (Levitin 1994),
+and relative pitch is best trained in key context.
+
+## Develop
+
+```bash
+python3 -m http.server 5181   # then http://localhost:5181
+```
+Pushing `main` deploys (GitHub Pages). Bump `CACHE` in `sw.js` when shipping.
+
+- `js/theory.js` notes, chords, keys, roman numerals, PLR, voice leading
+- `js/color.js` pitch → colour, colour-scheme names, washes
+- `js/audio.js` synth (guitar / piano / sine) + noise scramble
+- `js/views/*` chord views and the Ear shell; `js/ear/*` the five ear modes, pitch detector, practice log
+- `tools/make_icon.py`, `tools/render_icons.sh` app icon
+- `legacy/` the original Antigravity single-file version

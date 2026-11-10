@@ -23,7 +23,7 @@ C.setColorMap(state.colorMap);
 // ---- colour wash -----------------------------------------------------------
 A.onNote((midi, source) => {
   if (state.colorMode === 'off') return;
-  if (source === 'mystery' && state.ear.blind) return;
+  if (source === 'mystery') return; // hidden quiz note ('mystery-show' still washes)
   C.wash(C.noteWash(midi), state.colorMode === 'hold');
 });
 on('chordSound', c => {
@@ -48,7 +48,9 @@ $('.tabs').addEventListener('click', e => {
 function showView() {
   VIEWS.forEach(({ v }) => {
     const on = v.id === state.view;
-    $(`#view-${v.id}`).classList.toggle('active', on);
+    const sec = $(`#view-${v.id}`);
+    if (!on && sec.classList.contains('active')) v.leave?.();
+    sec.classList.toggle('active', on);
     if (on) v.render();
   });
   document.querySelectorAll('.tabs button').forEach(b => b.classList.toggle('on', b.dataset.view === state.view));
@@ -58,6 +60,7 @@ function showView() {
 // ---- header + settings sheet ------------------------------------------------
 function renderHeader() {
   $('#keyBtn').innerHTML = `<span class="kdot" style="background:${C.noteColor(state.key.tonic)}"></span>${T.keyName(state.key)} ▾`;
+  $('#keyglow').style.background = C.keyGlow(T.scalePcs(state.key));
   $('#sevBtn').classList.toggle('on', state.sevenths);
 }
 $('#keyBtn').addEventListener('click', () => { renderSheet(); $('#sheet').classList.remove('hidden'); });
@@ -68,10 +71,10 @@ $('#sheet').addEventListener('click', e => {
   if (!b) return;
   const [k, raw] = b.dataset.set.split('=');
   const v = isNaN(+raw) ? raw : +raw;
+  if (k === 'colorMap') C.setColorMap(v);
   if (k === 'tonic') set({ key: { ...state.key, tonic: v } });
   else if (k === 'mode') set({ key: { ...state.key, mode: v } });
   else set({ [k]: v });
-  if (k === 'colorMap') C.setColorMap(v);
   if (k === 'colorMode' && v === 'off') C.clearWash();
   renderSheet();
 });
@@ -82,6 +85,8 @@ function renderSheet() {
     <h3>Key</h3>
     <div class="grid12">${[...Array(12).keys()].map(pc => `<button data-set="tonic=${pc}" class="${pc === state.key.tonic ? 'on' : ''}" style="--c:${C.noteColor(pc)}">${T.noteName(pc, flats)}</button>`).join('')}</div>
     <div class="seg-ctl">${opt('mode', 'major', 'Major', state.key.mode)}${opt('mode', 'minor', 'Minor', state.key.mode)}</div>
+    <div class="palette">${T.scalePcs(state.key).slice().sort((a, b) => C.wheelPos(a) - C.wheelPos(b)).map(pc => `<span style="background:${C.noteColor(pc)}">${T.noteName(pc, flats)}</span>`).join('')}</div>
+    <p class="sub">Key palette, in colour-wheel order: <b>${C.schemeFor(T.scalePcs(state.key)).name.toLowerCase()}</b>${state.colorMap === 'fifths' ? ' (a key is always one unbroken sweep of the wheel)' : ' (try "By fifths" to see the key as one unbroken sweep)'}.</p>
     <h3>Labels</h3>
     <div class="seg-ctl">${opt('labels', 'note', 'Note names', state.labels)}${opt('labels', 'degree', 'Degrees (1 ♭3 5)', state.labels)}</div>
     <h3>Colour</h3>
@@ -100,6 +105,7 @@ function renderSheet() {
 function renderInspector() {
   const c = state.chord, key = state.key, flats = T.usesFlats(key), t = T.CHORD_TYPES[c.type];
   const dia = T.isDiatonic(c, key);
+  const scheme = C.schemeFor(T.chordPcs(c));
   const midis = T.voice(c).notes;
   const pills = t.iv.map((iv, i) => {
     const pc = T.mod12(c.root + iv);
@@ -112,7 +118,8 @@ function renderInspector() {
       <div class="cname" style="--g:${C.chordGradient(T.chordPcs(c))}">${T.chordName(c, flats)}</div>
       <div class="cmeta"><div><b>${t.name}</b> · <span class="roman ${dia ? '' : 'out'}">${T.romanFor(c, key)} ${dia ? `in ${T.keyName(key)}` : 'outside the key'}</span>
         ${canKey && !isKey ? `<button class="linkbtn" data-makekey>make key</button>` : ''}</div>
-        <div class="feel">${t.feel}</div></div>
+        <div class="feel">${t.feel}</div>
+        <div class="scheme"><span class="sw">${[...new Set(T.chordPcs(c))].map(pc => `<i style="background:${C.noteColor(pc)}"></i>`).join('')}</span><b>${scheme.name}</b> · ${scheme.blurb}</div></div>
     </div>
     <div class="row2">
       <div class="pills">${pills}</div>

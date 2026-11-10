@@ -6,26 +6,43 @@ import { selectChord, playMidi } from '../actions.js';
 
 let el;
 const R = 150;
-const pos = (pc, r = R) => {
-  const a = (pc / 12) * Math.PI * 2;
+// position follows the colour map, so the clock IS the colour wheel
+const slot = (s, r = R) => {
+  const a = (s / 12) * Math.PI * 2;
   return [r * Math.sin(a), -r * Math.cos(a)];
 };
+const pos = (pc, r = R) => slot(C.wheelPos(pc), r);
+
+function hueRing() {
+  // thin ring of the actual note colours, blended between slots
+  let out = '';
+  const byslot = [...Array(12).keys()].map(s => [...Array(12).keys()].find(pc => C.wheelPos(pc) === s));
+  for (let i = 0; i < 96; i++) {
+    const s0 = i / 8, a0 = (s0 / 12) * Math.PI * 2, a1 = ((s0 + 1 / 8) / 12) * Math.PI * 2;
+    const lo = Math.floor(s0) % 12; // arc i spans slot-0.5 … so floor(s0) is its slot
+    const p = (r, a) => `${(r * Math.sin(a)).toFixed(1)} ${(-r * Math.cos(a)).toFixed(1)}`;
+    out += `<path d="M${p(R + 32, a0 - Math.PI / 12)} A${R + 32} ${R + 32} 0 0 1 ${p(R + 32, a1 - Math.PI / 12 + 0.002)}" stroke="${C.noteColor(byslot[lo], 4, 0.55)}" stroke-width="5" fill="none"/>`;
+  }
+  return `<g class="hue-ring">${out}</g>`;
+}
 
 function render() {
   const key = state.key, flats = T.usesFlats(key), chord = state.chord;
   const pcs = T.chordPcs(chord);
   const scale = new Set(T.scalePcs(key));
-  const shapePts = [...new Set(pcs)].sort((a, b) => a - b).map(pc => pos(pc, R).map(v => v.toFixed(1)).join(',')).join(' ');
+  const scheme = C.schemeFor(pcs);
+  // walk the chord tones in wheel order, starting from the root
+  const rootSlot = C.wheelPos(chord.root);
+  const sorted = [...new Set(pcs)].sort((a, b) => T.mod12(C.wheelPos(a) - rootSlot) - T.mod12(C.wheelPos(b) - rootSlot));
+  const shapePts = sorted.map(pc => pos(pc, R).map(v => v.toFixed(1)).join(',')).join(' ');
 
-  // intervals between neighbouring chord tones, shown along the shape's sides
-  const sorted = [...new Set(pcs)].sort((a, b) => T.mod12(a - chord.root) - T.mod12(b - chord.root));
+  // slots between neighbouring chord tones (×30° of hue), along the shape's sides
   let sides = '';
   if (sorted.length > 1) {
     sorted.forEach((pc, i) => {
       const next = sorted[(i + 1) % sorted.length];
-      const gap = T.mod12(next - pc) || 12;
-      const mid = pc + gap / 2;
-      const [x, y] = pos(mid, R * 0.62);
+      const gap = T.mod12(C.wheelPos(next) - C.wheelPos(pc)) || 12;
+      const [x, y] = slot(C.wheelPos(pc) + gap / 2, R * 0.62);
       sides += `<text class="gap" x="${x.toFixed(1)}" y="${y.toFixed(1)}">${gap}</text>`;
     });
   }
@@ -40,14 +57,19 @@ function render() {
       <text dy="5">${label}</text></g>`;
   }
 
+  el.querySelector('.hint').innerHTML = C.getMap() === 'fifths'
+    ? 'Notes in circle-of-fifths order, which is also the colour wheel. Neighbours are a 5th apart, so close colours = consonant notes. Numbers = steps of a 5th (×30° of hue).'
+    : 'Tap a note to make it the root. The shape <b>is</b> the chord: every major chord is the same triangle, minor is its mirror. Numbers = half-steps (×30° of hue).';
   el.querySelector('.stage').innerHTML = `
     <svg viewBox="-200 -200 400 400" class="clock">
+      ${hueRing()}
       <circle r="${R}" class="ring"/>
       ${pcs.length > 1 ? `<polygon points="${shapePts}" class="shape" style="fill:${C.noteColor(chord.root, 4, 0.22)};stroke:${C.noteColor(chord.root, 5, 0.95)}"/>` : ''}
       ${sides}
       ${notes}
       <text class="center-name" y="-4">${T.chordName(chord, flats)}</text>
       <text class="center-sub" y="18">${T.CHORD_TYPES[chord.type].name}</text>
+      <text class="scheme-name" y="38">${scheme.name}</text>
     </svg>`;
 }
 
@@ -56,7 +78,7 @@ export default {
   mount(root) {
     el = root;
     el.innerHTML = `<div class="stage"></div>
-      <p class="hint">Tap a note to make it the root. The shape <b>is</b> the chord: every major chord is the same triangle, minor is its mirror. Numbers = half-steps between notes.</p>`;
+      <p class="hint"></p>`;
     el.addEventListener('click', e => {
       const g = e.target.closest('.cnode');
       if (!g) return;

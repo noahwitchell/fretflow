@@ -30,10 +30,18 @@ export function audio() {
   return ctx;
 }
 
-export function playNote(midi, { at = 0, dur = 2.2, vel = 0.6, notify = true, source = 'play' } = {}) {
+export const TIMBRES = ['guitar', 'piano', 'sine'];
+
+export function playNote(midi, { at = 0, dur = 2.2, vel = 0.6, notify = true, source = 'play', timbre = 'guitar' } = {}) {
   const c = audio();
   const t = c.currentTime + at + 0.01;
   const f = midiFreq(midi);
+  if (timbre === 'mix') timbre = TIMBRES[Math.floor(Math.random() * TIMBRES.length)];
+  if (timbre !== 'guitar') {
+    playSimple(c, f, t, dur, vel, timbre);
+    if (notify) setTimeout(() => noteListeners.forEach(fn => fn(midi, source)), Math.max(0, at * 1000));
+    return;
+  }
 
   const mk = (type, freq, detune, level) => {
     const o = c.createOscillator(), g = c.createGain();
@@ -71,4 +79,50 @@ export function stopAll() {
     v.env.gain.cancelScheduledValues(t);
     v.env.gain.setTargetAtTime(0.0001, t, 0.05);
   });
+}
+
+// Piano-ish (decaying partials) and pure sine voices.
+function playSimple(c, f, t, dur, vel, timbre) {
+  const env = c.createGain();
+  const partials = timbre === 'piano' ? [[1, 1], [2, 0.45], [3, 0.18], [4, 0.1], [5, 0.04]] : [[1, 1]];
+  partials.forEach(([h, a]) => {
+    if (f * h > 12000) return;
+    const o = c.createOscillator(), g = c.createGain();
+    o.type = 'sine'; o.frequency.value = f * h; g.gain.value = a;
+    o.connect(g); g.connect(env); o.start(t); o.stop(t + dur + 0.05);
+  });
+  const amp = vel * (timbre === 'sine' ? 0.22 : 0.18);
+  env.gain.setValueAtTime(0.0001, t);
+  if (timbre === 'sine') {
+    env.gain.exponentialRampToValueAtTime(amp, t + 0.03);
+    env.gain.setValueAtTime(amp, t + dur * 0.6);
+  } else {
+    env.gain.exponentialRampToValueAtTime(amp, t + 0.004);
+    env.gain.exponentialRampToValueAtTime(amp * 0.3, t + 0.5);
+  }
+  env.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  env.connect(out); env.connect(wet);
+  const v = { env, end: t + dur }; voices.add(v);
+  setTimeout(() => voices.delete(v), (dur + 0.2) * 1000);
+}
+
+// A short burst of noise + a random cluster: wipes short-term pitch memory between quiz notes,
+// so you can't work out the next note from the last one.
+export function scramble(len = 0.8) {
+  const c = audio(), t = c.currentTime + 0.01;
+  const buf = c.createBuffer(1, Math.floor(c.sampleRate * len), c.sampleRate);
+  const d = buf.getChannelData(0);
+  for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+  const src = c.createBufferSource(); src.buffer = buf;
+  const bp = c.createBiquadFilter(); bp.type = 'bandpass'; bp.Q.value = 0.6;
+  bp.frequency.setValueAtTime(300, t); bp.frequency.exponentialRampToValueAtTime(3000, t + len);
+  const g = c.createGain();
+  g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.12, t + 0.05);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + len);
+  src.connect(bp); bp.connect(g); g.connect(out); src.start(t);
+  for (let i = 0; i < 4; i++) {
+    const m = 48 + Math.floor(Math.random() * 36);
+    playNote(m, { at: Math.random() * len * 0.6, dur: 0.25, vel: 0.25, notify: false, timbre: 'piano' });
+  }
+  return len;
 }
