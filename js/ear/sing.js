@@ -107,7 +107,7 @@ function paintMic() {
 
 async function ensureMic() {
   try {
-    if (!micActive()) await startMic(onPitch);
+    if (!micActive()) await startMic(onPitch, onStatus);
     micState = 'granted'; paintMic();
     return true;
   } catch (err) {
@@ -130,6 +130,30 @@ async function startFree() {
   paint();
 }
 function stop() { clearTimeout(nextT); stopMic(); mode = 'idle'; target = null; paint(); fb('Stopped. Tap ▶ Start singing for another round.'); }
+
+// Live input level + plain-language trouble report, so you can see whether the mic hears you.
+let quietSince = 0;
+function onStatus(st) {
+  const box = el.querySelector('.m-diag'), bar = el.querySelector('.lvl span');
+  if (!box) return;
+  if (st.error) { box.innerHTML = `Mic stopped: <code>${st.error}</code>. Tap ■ Stop, then ▶ Start again.`; box.className = 'm-diag bad'; return; }
+  const db = st.level > 0 ? 20 * Math.log10(st.level) : -100;
+  if (bar) bar.style.width = `${Math.max(0, Math.min(100, (db + 60) * (100 / 54)))}%`;
+  const now = performance.now();
+  if (st.level > 0.005) quietSince = now;
+  let msg = '', cls = 'm-diag';
+  if (st.dead) { msg = `The mic is on but sends only silence (audio ${st.ctx}, mic ${st.track}). Tap ■ Stop, swipe FretFlow away in the app switcher, reopen, and start again. If it keeps happening, tell Claude this line.`; cls += ' bad'; }
+  else if (st.track === 'muted') { msg = 'Another app has the microphone (a call, Voice Memos, dictation). Close it and start again.'; cls += ' bad'; }
+  else if (now - quietSince > 3000) msg = 'Hearing very little: sing louder or bring the phone closer.';
+  if (box.dataset.msg !== msg) { box.dataset.msg = msg; box.innerHTML = msg; box.className = cls; }
+}
+
+function refC() {
+  if (mode === 'session' && phase === 'listen' && first === null) first = 'hint'; // C before singing = relative pitch, no memory score
+  gateUntil = Math.max(gateUntil, performance.now() + 1600);
+  A.playNote(60, { dur: 1.4, source: 'mystery' });
+  if (mode === 'session' && phase === 'listen') fb(`That's <b>C</b>. Now find ${T.noteName(target)} from it and lock on.`);
+}
 
 function median(a) { const s = [...a].sort((x, y) => x - y); return s[s.length >> 1]; }
 
@@ -217,7 +241,7 @@ function paint(lit = false) {
   const recent = data.sing.slice(-10);
   const avg = recent.length ? Math.round(recent.reduce((s, r) => s + Math.abs(r.cents), 0) / recent.length) : null;
   const btns = mode === 'session'
-    ? `<button class="btn" data-act="hear">Hear it</button><button class="btn" data-act="skip">Skip</button><button class="btn ghost" data-act="stop">■ Stop</button>`
+    ? `<button class="btn" data-act="refc">Ref C</button><button class="btn" data-act="hear">Hear it</button><button class="btn" data-act="skip">Skip</button><button class="btn ghost" data-act="stop">■ Stop</button>`
     : mode === 'free'
       ? `<button class="btn primary" data-act="start">▶ Start singing</button><button class="btn ghost" data-act="stop">■ Stop</button>`
       : `<button class="btn primary" data-act="start">▶ Start singing</button><button class="btn ghost" data-act="free">Live tuner</button>`;
@@ -228,7 +252,7 @@ function paint(lit = false) {
   const zone = (tol() / 300) * 50;
   el.querySelector('.sing-stage').innerHTML = `
     <div class="target ${lit ? 'lit' : ''}" style="--c:${lit && target != null ? C.noteColor(target) : 'hsla(222,14%,24%,1)'}">${target != null ? T.noteName(target) : mode === 'free' ? '♪' : '?'}</div>
-    <div class="meter"><div class="m-note">–</div><div class="bar"><span class="zone" style="left:${50 - zone}%;width:${zone * 2}%"></span><span class="mid"></span><span class="needle"></span></div><div class="m-cents"></div></div>
+    <div class="meter"><div class="m-note">–</div><div class="bar"><span class="zone" style="left:${50 - zone}%;width:${zone * 2}%"></span><span class="mid"></span><span class="needle"></span></div><div class="m-cents"></div><div class="lvl" title="Microphone level"><span></span></div><div class="m-diag"></div></div>
     <div class="dim small">${mode === 'session' && sess.n ? `This session: ${sess.n} found${sess.firstN ? ` · first tries average ${Math.round(sess.firstAbs / sess.firstN)}¢ off` : ''}. ` : ''}${avg != null ? `Last ${recent.length} first tries: ${avg}¢ average.` : 'Do this first thing, before you hear any music: that tests your memory, not your last song.'}</div>`;
   meter(lastF);
 }
@@ -248,6 +272,7 @@ export default {
       if (act === 'allow') askMic();
       if (act === 'start') startSession();
       if (act === 'free') startFree();
+      if (act === 'refc') refC();
       if (act === 'hear') hearIt();
       if (act === 'skip') skip();
       if (act === 'stop') stop();

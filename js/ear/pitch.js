@@ -1,5 +1,5 @@
 // Microphone pitch detection (YIN-style), for the Sing mode.
-import { audio, micSession } from '../audio.js';
+import { micSession } from '../audio.js';
 
 let stream = null, src = null, an = null, raf = 0, buf = null, frame = 0;
 
@@ -17,28 +17,75 @@ export async function getMicStream(constraints = { echoCancellation: false, nois
   }
 }
 
-export async function startMic(onPitch) {
-  const c = audio();
-  stream = await getMicStream();
-  src = c.createMediaStreamSource(stream);
-  an = c.createAnalyser(); an.fftSize = 2048;
-  src.connect(an);
+// The mic gets its OWN audio context. The playback context is torn down and rebuilt whenever iOS
+// interrupts it (lock screen, audio-session switch); a mic wired into that one goes silent for good.
+// This one is created on the Start tap (so iOS lets it run), kept awake, and watched: if it only
+// ever delivers digital silence, the whole chain is rebuilt once.
+let mctx = null, track = null, onP = null, onS = null, zeroSince = 0, rebuilt = false;
+const AC = () => window.AudioContext || window.webkitAudioContext;
+
+function wire() {
+  src = mctx.createMediaStreamSource(stream);
+  an = mctx.createAnalyser(); an.fftSize = 2048;
+  const sink = mctx.createGain(); sink.gain.value = 0; // Safari only runs nodes that lead to the speakers
+  src.connect(an); an.connect(sink); sink.connect(mctx.destination);
   buf = new Float32Array(an.fftSize);
+  track = stream.getAudioTracks()[0];
+}
+
+export async function startMic(onPitch, onStatus) {
+  onP = onPitch; onS = onStatus || (() => {});
+  rebuilt = false;
+  mctx = new (AC())();           // inside the tap, so it's allowed to start
+  mctx.resume().catch(() => {});
+  try { stream = await getMicStream(); }
+  catch (e) { try { mctx.close(); } catch {} mctx = null; throw e; }
+  try { await mctx.resume(); } catch {}
+  wire();
+  zeroSince = performance.now();
+  cancelAnimationFrame(raf);
   const loop = () => {
     raf = requestAnimationFrame(loop);
-    if (frame++ % 2) return; // ~30 checks a second is plenty
+    if (!an || frame++ % 2) return; // ~30 checks a second is plenty
+    if (mctx.state !== 'running') mctx.resume().catch(() => {});
     an.getFloatTimeDomainData(buf);
-    onPitch(detect(buf, c.sampleRate));
+    let rms = 0, peak = 0;
+    for (let i = 0; i < buf.length; i++) { const v = buf[i]; rms += v * v; if (v > peak) peak = v; else if (-v > peak) peak = -v; }
+    rms = Math.sqrt(rms / buf.length);
+    const now = performance.now();
+    if (peak > 0) zeroSince = now;
+    const dead = now - zeroSince > 1500;
+    if (dead && !rebuilt) { rebuilt = true; rebuild(); }
+    onS({ level: rms, ctx: mctx.state, track: track ? (track.muted ? 'muted' : track.readyState) : 'none', dead, rate: mctx.sampleRate });
+    onP(detect(buf, mctx.sampleRate));
   };
   loop();
 }
+
+// Fresh stream + fresh context, used once if the first chain only gives zeros.
+async function rebuild() {
+  try {
+    if (stream) stream.getTracks().forEach(t => t.stop());
+    if (src) src.disconnect();
+    try { mctx.close(); } catch {}
+    mctx = new (AC())();
+    stream = await getMicStream();
+    try { await mctx.resume(); } catch {}
+    wire();
+    zeroSince = performance.now();
+  } catch (e) { onS({ error: `${e.name}: ${e.message}` }); }
+}
+
+// A tap anywhere nudges a stalled mic context back to life.
+window.addEventListener('pointerdown', () => { if (mctx && mctx.state !== 'running') mctx.resume().catch(() => {}); }, { capture: true });
 
 export function stopMic() {
   cancelAnimationFrame(raf);
   if (stream) stream.getTracks().forEach(t => t.stop());
   if (src) src.disconnect();
   if (stream) micSession(false);
-  stream = src = an = null;
+  if (mctx) { try { mctx.close(); } catch {} }
+  stream = src = an = mctx = track = null;
 }
 
 export const micActive = () => !!stream;
@@ -47,7 +94,7 @@ export const micActive = () => !!stream;
 export function detect(x, sr) {
   let rms = 0;
   for (let i = 0; i < x.length; i++) rms += x[i] * x[i];
-  if (Math.sqrt(rms / x.length) < 0.012) return null;
+  if (Math.sqrt(rms / x.length) < 0.005) return null;
   const W = x.length >> 1, minT = Math.floor(sr / 1100), maxT = Math.min(W - 1, Math.floor(sr / 65));
   const d = new Float32Array(maxT + 1);
   for (let tau = 1; tau <= maxT; tau++) {

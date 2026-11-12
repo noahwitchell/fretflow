@@ -61,7 +61,7 @@ function tick() {
 export const unlocked = () => UNLOCK_ORDER.slice(0, data.level);
 
 // Returns the newly unlocked pitch class, if this answer earned a level-up.
-export function logNote(want, guess, rtMs, colourShown) {
+export function logNote(want, guess, rtMs, colourShown, withRef = false) {
   tick();
   const ok = want === guess;
   const p = (data.per[want] ||= { n: 0, ok: 0, rt: 0 });
@@ -72,7 +72,7 @@ export function logNote(want, guess, rtMs, colourShown) {
   const c = colourShown ? d.cOn : d.cOff; c[0]++; if (ok) c[1]++;
 
   let unlockedPc = null;
-  if (data.opts.pool === 'adaptive') {
+  if (data.opts.pool === 'adaptive' && !withRef) {
     data.recent.push(ok ? 1 : 0);
     data.recent = data.recent.slice(-20);
     data.sinceLevel++;

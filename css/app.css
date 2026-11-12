@@ -406,3 +406,9 @@ body.moves-mode #inspector { display: none; }
 .ginfo { padding: 8px 10px; }
 .ginfo .gacts .btn { flex: 1 1 0; min-width: 0; padding: 6px 2px; font-size: 13px; white-space: nowrap; }
 .ginfo .gsub { font-size: 12px; }
+
+/* sing: live mic level + trouble line */
+.meter .lvl { height: 4px; border-radius: 2px; background: rgba(255,255,255,0.08); overflow: hidden; margin-top: 6px; }
+.meter .lvl span { display: block; height: 100%; width: 0; background: #7dd3fc; transition: width 80ms linear; }
+.m-diag { min-height: 2.6em; font-size: 12px; color: var(--dim); margin-top: 4px; line-height: 1.3; }
+.m-diag.bad { color: #fca5a5; }

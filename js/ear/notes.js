@@ -7,7 +7,7 @@ import * as A from '../audio.js';
 import { data, save, logNote, unlocked, levelProgress, UNLOCK_ORDER } from './log.js';
 import { ring, seg, pct, PLAIN } from './ui.js';
 
-let el, mystery = null, answered = false, misses = [], t0 = 0, streak = 0, sess = { n: 0, ok: 0 }, last = null, busy = false;
+let el, usedRef = false, mystery = null, answered = false, misses = [], t0 = 0, streak = 0, sess = { n: 0, ok: 0 }, last = null, busy = false;
 const RANGES = { '4': [4, 4], '3-5': [3, 5], '2-6': [2, 6] };
 const NATURALS = [0, 2, 4, 5, 7, 9, 11];
 
@@ -35,7 +35,7 @@ function newNote() {
   } while (pl.length > 1 && last && pc === last.pc && guard++ < 20);
   const timbre = data.opts.timbre === 'mix' ? A.TIMBRES[Math.floor(Math.random() * 3)] : data.opts.timbre;
   mystery = { pc, midi: (oct + 1) * 12 + pc, timbre };
-  answered = false; misses = [];
+  answered = false; misses = []; usedRef = false;
   const delay = data.opts.noise && last ? A.scramble(0.7) + 0.35 : 0;
   busy = true;
   fb(delay ? 'Clearing your ears…' : '');
@@ -59,7 +59,7 @@ function guess(pc) {
   if (first) {
     sess.n++; if (ok) sess.ok++;
     streak = ok ? streak + 1 : 0;
-    newPc = logNote(want, pc, rt, false);
+    newPc = logNote(want, pc, rt, false, usedRef);
   }
   if (!ok) {
     // stay dark: hear what you picked, then the mystery note again, and try again
@@ -77,7 +77,7 @@ function guess(pc) {
   A.stopAll();
   A.playNote(mystery.midi, { dur: 2, timbre: mystery.timbre, source: 'reveal' });
   const speed = rt < 1500 ? 'fast' : rt < 3000 ? 'ok' : 'slow';
-  fb(first ? `✓ ${T.midiName(mystery.midi)} <span class="rt ${speed}">${(rt / 1000).toFixed(1)}s</span>` : `✓ ${T.midiName(mystery.midi)}, found on try ${misses.length + 1}`, 'good');
+  fb(first ? `✓ ${T.midiName(mystery.midi)} <span class="rt ${speed}">${(rt / 1000).toFixed(1)}s</span>${usedRef ? ' <span class="dim">(with C)</span>' : ''}` : `✓ ${T.midiName(mystery.midi)}, found on try ${misses.length + 1}`, 'good');
   if (newPc !== null) setTimeout(() => fb(`🎉 Unlocked <b>${T.noteName(newPc)}</b>. Listen to it a few times first.`, 'good'), 900);
   paint(want, misses);
   if (newPc === null) setTimeout(() => { if (answered && el.classList.contains('on')) newNote(); }, 1400);
@@ -120,13 +120,15 @@ function controls() {
       <div class="row">${seg('range', [['4', 'Octave 4'], ['3-5', '3–5'], ['2-6', '2–6']], o.range)}</div>
       <div class="row">${seg('timbre', [['guitar', 'Guitar'], ['piano', 'Piano'], ['sine', 'Pure'], ['mix', 'Mix']], o.timbre)}</div>
       <div class="row">${seg('noise', [['true', 'Noise between notes'], ['false', 'No noise']], o.noise)}</div>
+      <div class="row"><button class="btn ghost small" data-act="hearall">Hear all my notes in a row</button></div>
+      <p class="dim small"><b>Ref C</b> plays a C so you can work it out by interval. Answers after a Ref C still count in your stats but not toward unlocking the next note (that's for pure memory).</p>
       <p class="dim small">Noise wipes the last note from memory so you name each one on its own, not relative to the previous. The screen stays dark until you find the note; a miss lets you try again, but only your first guess is scored.</p>
     </details>
     <div class="row">
       <button class="btn primary" data-act="new">▶ New note</button>
       <button class="btn" data-act="again">↻ Again</button>
+      <button class="btn" data-act="refc">Ref C</button>
       <button class="btn ghost" data-act="giveup">Show answer</button>
-      <button class="btn ghost" data-act="hearall">Hear my notes</button>
     </div>`;
 }
 
@@ -149,6 +151,12 @@ export default {
       if (act === 'new') newNote();
       if (act === 'again' && mystery && !busy) playMystery();
       if (act === 'giveup') giveUp();
+      if (act === 'refc' && !busy) {
+        if (mystery && !answered && !misses.length) usedRef = true;
+        A.stopAll();
+        A.playNote(60, { dur: 1.6, source: 'mystery', timbre: mystery?.timbre || (data.opts.timbre === 'mix' ? 'guitar' : data.opts.timbre) });
+        if (mystery && !answered) fb(`That's <b>C</b>. Tap ↻ Again for the mystery note.`);
+      }
       if (act === 'hearall') pool().forEach((pc, i) => A.playNote(60 + pc, { at: i * 0.6, dur: 1, timbre: data.opts.timbre === 'mix' ? 'guitar' : data.opts.timbre }));
     });
     controls(); paint();
