@@ -6,7 +6,7 @@ import math, colorsys
 HUES = [0, 28, 54, 88, 134, 168, 192, 218, 248, 276, 304, 334]   # app's chromatic map
 SATS = [88, 92, 94, 82, 82, 84, 90, 90, 84, 86, 88, 88]
 CX, CY = 256, 262
-OUT = dict(rx=192, ry=136, rot=-20)   # outer oval of the whole note
+OUT = dict(rx=192, ry=136, rot=0)   # outer oval of the whole note
 INN = dict(rx=104, ry=60, rot=62)      # the slanted hollow
 
 def hsl(h, s, l):
@@ -49,8 +49,8 @@ for k in range(N):
     wedges.append(f'<path d="M{CX} {CY} L{x0:.2f} {y0:.2f} L{x1:.2f} {y1:.2f}Z" fill="{hsl(h, s, 56)}"/>')
 
 # chord triangle, behind the note: C, E, G at their wheel angles, centred on the note
-NOTE_SCALE = 0.56
-TRI_R = 168
+NOTE_SCALE = 0.66
+TRI_R = 184
 notes = [0, 4, 7]
 raw = [pt(pc * 30, TRI_R) for pc in notes]
 gx = sum(x for x, _ in raw) / 3 - CX; gy = sum(y for _, y in raw) / 3 - CY
@@ -63,7 +63,7 @@ dots = ''.join(
 scale = f'translate({CX} {CY}) scale({NOTE_SCALE}) translate({-CX} {-CY})'
 # centre the whole picture (dots + note) in the square
 xs = [x for (x, _), _ in pts] ; ys = [y for (_, y), _ in pts]
-nw, nh = 0.56 * 180, 0.56 * 160  # rough half-size of the tilted note
+nw, nh = NOTE_SCALE * OUT["rx"], NOTE_SCALE * OUT["ry"]  # half-size of the level note
 x0, x1 = min(min(xs) - 36, CX - nw), max(max(xs) + 36, CX + nw)
 y0, y1 = min(min(ys) - 36, CY - nh), max(max(ys) + 36, CY + nh)
 shift = f'translate({256 - (x0 + x1) / 2:.1f} {256 - (y0 + y1) / 2:.1f})'
