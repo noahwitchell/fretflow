@@ -50,9 +50,9 @@ for k in range(N):
 
 # chord triangle, behind the note: C, E, G at their wheel angles, centred on the note
 NOTE_SCALE = 0.66
-TRI_R = 184
+TRI_R = 164  # inradius 82 < note half-height, so every side passes under the note
 notes = [0, 4, 7]
-raw = [pt(pc * 30, TRI_R) for pc in notes]
+raw = [pt(a, TRI_R) for a in (0, 120, 240)]  # equilateral, point up: C top, E right, G left
 gx = sum(x for x, _ in raw) / 3 - CX; gy = sum(y for _, y in raw) / 3 - CY
 pts = [((x - gx, y - gy), hsl(HUES[pc], SATS[pc], 58)) for (x, y), pc in zip(raw, notes)]
 
