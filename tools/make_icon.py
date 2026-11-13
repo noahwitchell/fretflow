@@ -66,7 +66,9 @@ xs = [x for (x, _), _ in pts] ; ys = [y for (_, y), _ in pts]
 nw, nh = NOTE_SCALE * OUT["rx"], NOTE_SCALE * OUT["ry"]  # half-size of the level note
 x0, x1 = min(min(xs) - 36, CX - nw), max(max(xs) + 36, CX + nw)
 y0, y1 = min(min(ys) - 36, CY - nh), max(max(ys) + 36, CY + nh)
-shift = f'translate({256 - (x0 + x1) / 2:.1f} {256 - (y0 + y1) / 2:.1f})'
+MARGIN = 40  # empty space kept around the artwork on each side
+fit = min((512 - 2 * MARGIN) / (x1 - x0), (512 - 2 * MARGIN) / (y1 - y0))
+shift = f'translate(256 256) scale({fit:.4f}) translate({-(x0 + x1) / 2:.1f} {-(y0 + y1) / 2:.1f})'
 
 
 svg = f'''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
