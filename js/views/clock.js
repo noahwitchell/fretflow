@@ -6,13 +6,23 @@ import { selectChord, playMidi } from '../actions.js';
 import * as A from '../audio.js';
 
 // Notes in the order you tapped them. The first one is the root (and the lowest note).
-let el, built = [], synced = '';
+let el, built = [], synced = '', inv = 0; // inv = inversion step: +1 moves the lowest note up an octave
 const ck = c => `${c.root}:${c.type}`;
 
 // One fixed pitch per note: the root sits between G3 and F♯4 and every other note stacks
 // upward from it, so a note sounds the same when tapped and when the chord plays back.
 const rootMidi = r => 55 + T.mod12(r - 7);
-const pitchOf = pc => (built.length ? rootMidi(built[0]) + T.mod12(pc - built[0]) : rootMidi(pc));
+const stackOf = pc => (built.length ? rootMidi(built[0]) + T.mod12(pc - built[0]) : rootMidi(pc));
+
+// The voicing for inversion step k: notes stacked from the root, then the lowest k jump up an
+// octave (negative k: the highest drop down). k = n is root position again, an octave higher.
+function voicing(k = inv) {
+  const s = built.map(stackOf).sort((a, b) => a - b), n = s.length;
+  return s.map((m, i) => m + 12 * (Math.floor((k - 1 - i) / n) + 1)).sort((a, b) => a - b);
+}
+const inRange = v => v.length > 1 && v[0] >= 40 && v[v.length - 1] <= 88; // E2 … E6
+const pitchOf = pc => voicing().find(m => T.mod12(m) === pc) ?? stackOf(pc);
+const ORD = ['root position', '1st inversion', '2nd inversion', '3rd inversion', '4th inversion', '5th inversion', '6th inversion'];
 
 // Name the tapped notes from the first-tapped root; if they only spell a chord on another
 // root, it's that chord with your root in the bass, written as a slash chord (G7/D).
@@ -52,9 +62,20 @@ function hueRing() {
 function render() {
   const key = state.key, flats = T.usesFlats(key);
   // follow chords chosen elsewhere; otherwise keep the notes tapped here
-  if (ck(state.chord) !== synced) { built = [...new Set(T.chordPcs(state.chord))]; synced = ck(state.chord); }
+  if (ck(state.chord) !== synced) { built = [...new Set(T.chordPcs(state.chord))]; synced = ck(state.chord); inv = 0; }
   const pcs = built;
-  const nm = nameNotes(flats);
+  let nm = nameNotes(flats);
+  const v = built.length ? voicing() : [];
+  const bass = v.length ? T.mod12(v[0]) : null;
+  if (nm && inv !== 0) {
+    // name it from the chord's real root, with whatever is now in the bass
+    const t = T.CHORD_TYPES[nm.chord.type];
+    const idx = t.iv.findIndex(x => T.mod12(nm.chord.root + x) === bass);
+    const base = T.chordName(nm.chord, flats);
+    nm = { ...nm,
+      label: idx > 0 ? `${base}/${T.noteName(bass, flats)}` : base,
+      sub: idx > 0 ? `${ORD[idx]} · ${t.deg[idx]} in bass` : `root position, ${inv > 0 ? 'up' : 'down'} an octave` };
+  }
   const root = pcs.length ? pcs[0] : null;
   const chord = { root: root ?? state.chord.root, type: 'maj' };
   const scale = new Set(T.scalePcs(key));
@@ -83,8 +104,9 @@ function render() {
     const label = state.labels === 'degree' ? (inChord ? rel : T.DEGREE_NAMES[T.mod12(pc - key.tonic)]) : T.noteName(pc, flats);
     // under each chosen note: its interval from your root ("1" marks the root itself)
     const tag = inChord && state.labels !== 'degree' ? `<text class="rel" dy="17">${isRoot ? 'root' : rel}</text>` : '';
+    const isBass = pcs.length > 1 && pc === bass;
     notes += `<g class="cnode ${inChord ? 'on' : ''} ${inScale ? 'scale' : 'out'} ${isRoot ? 'root' : ''}" data-pc="${pc}" transform="translate(${x.toFixed(1)},${y.toFixed(1)})">
-      <circle r="${inChord ? 25 : 19}" fill="${C.noteColor(pc, 4, inChord ? 1 : inScale ? 0.38 : 0.14)}"/>
+      ${isBass ? '<circle r="31" class="bassring"/>' : ''}<circle r="${inChord ? 25 : 19}" fill="${C.noteColor(pc, 4, inChord ? 1 : inScale ? 0.38 : 0.14)}"/>
       <text dy="${tag ? 2 : 5}">${label}</text>${tag}</g>`;
   }
 
@@ -102,33 +124,46 @@ function render() {
       <text class="center-name ${nm && nm.label.length > 7 ? 'long' : ''}" y="-8">${nm ? nm.label : pcs.length ? pcs.map(p => T.noteName(p, flats)).join(' ') : '…'}</text>
       <text class="center-sub" y="14">${nm ? nm.sub : pcs.length < 2 ? 'first note you tap = root' : 'not a named chord'}</text>
       ${pcs.length >= 2 ? `<text class="scheme-name" y="32">${scheme.name}</text><text class="center-play" y="52">▶ hear it</text>` : ''}
+      ${v.length > 1 ? `<text class="voicing" y="198">low → high: ${v.map(m => T.midiName(m, flats)).join(' · ')}<tspan class="dimt">  (dashed ring = bass)</tspan></text>` : ''}
     </svg>`;
+  const can = built.length > 1;
+  el.querySelector('[data-inv="-1"]').disabled = !can || !inRange(voicing(inv - 1));
+  el.querySelector('[data-inv="1"]').disabled = !can || !inRange(voicing(inv + 1));
+}
+
+// The voiced pitches, low to high: one at a time, then together (quicker after an inversion,
+// so cycling through them you mostly hear the chord's colour change).
+function hear(quick = false) {
+  if (!built.length) return;
+  A.stopAll();
+  const ms = voicing(), step = quick ? 0.16 : 0.3;
+  ms.forEach((m, i) => playMidi(m, { at: i * step, dur: 1.4 }));
+  const at = ms.length * step + 0.15;
+  ms.forEach((m, i) => playMidi(m, { at: at + i * 0.03, dur: 2.2, notify: false }));
 }
 
 export default {
   id: 'clock',
   mount(root) {
     el = root;
-    el.innerHTML = `<div class="clock-tools"><button class="btn small" data-clear>Clear notes</button></div><div class="stage"></div>
+    el.innerHTML = `<div class="clock-tools"><button class="btn small" data-inv="-1" title="Highest note drops an octave">Invert ↓</button><button class="btn small" data-inv="1" title="Lowest note jumps up an octave">Invert ↑</button><span class="sp"></span><button class="btn small" data-clear>Clear notes</button></div><div class="stage"></div>
       <p class="hint"></p>`;
     el.addEventListener('click', e => {
-      if (e.target.closest('[data-clear]')) { built = []; render(); return; }
-      if (e.target.closest('.center-hit')) {
-        if (!built.length) return;
-        A.stopAll();
-        // the same pitches you tapped: one at a time from the root upward, then together
-        const ms = built.map(pitchOf).sort((a, b) => a - b);
-        ms.forEach((m, i) => playMidi(m, { at: i * 0.3, dur: 1.4 }));
-        const at = ms.length * 0.3 + 0.15;
-        ms.forEach((m, i) => playMidi(m, { at: at + i * 0.03, dur: 2.2, notify: false }));
+      if (e.target.closest('[data-clear]')) { built = []; inv = 0; render(); return; }
+      const ib = e.target.closest('[data-inv]');
+      if (ib) {
+        const k = inv + +ib.dataset.inv;
+        if (built.length < 2 || !inRange(voicing(k))) return;
+        inv = k; render(); hear(true);
         return;
       }
+      if (e.target.closest('.center-hit')) { hear(); return; }
       const g = e.target.closest('.cnode');
       if (!g) return;
       const pc = +g.dataset.pc;
       // build note by note: each tap plays just that note (at its fixed pitch) and adds/removes it
-      if (built.includes(pc)) { playMidi(pitchOf(pc), { dur: 1.2, vel: 0.4 }); built = built.filter(p => p !== pc); }
-      else { built = [...built, pc]; playMidi(pitchOf(pc), { dur: 1.6 }); }
+      if (built.includes(pc)) { playMidi(pitchOf(pc), { dur: 1.2, vel: 0.4 }); built = built.filter(p => p !== pc); inv = 0; }
+      else { built = [...built, pc]; inv = 0; playMidi(pitchOf(pc), { dur: 1.6 }); }
       const nm = nameNotes(false);
       if (nm) { synced = ck(nm.chord); selectChord(nm.chord, { play: false }); }
       else render();
