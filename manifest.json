@@ -1,6 +1,6 @@
 {
-  "name": "FretFlow",
-  "short_name": "FretFlow",
+  "name": "ChordFlow",
+  "short_name": "ChordFlow",
   "description": "See how chords are built and how they move. Ear and pitch training with note colours.",
   "start_url": "./",
   "scope": "./",

@@ -1,4 +1,4 @@
-# FretFlow — notes for Claude
+# ChordFlow (formerly FretFlow) — notes for Claude
 
 - Owner: Noah. Goal: a true companion app for ear training / perfect pitch and for seeing
   how chords fit together to write music. Phone first (installed PWA), also works on desktop.
@@ -12,3 +12,5 @@
   CACHE in sw.js when shipping. Nothing secret goes in this repo.
 - Icon: `python3 tools/make_icon.py && tools/render_icons.sh` (headless Chrome renders the PNGs).
 - Ear data lives in localStorage `fretflow.ear.v1` (js/ear/log.js), app state in `fretflow.v2`.
+- Renamed FretFlow → ChordFlow (display name, manifest, title). Repo, Pages URL, local folder and
+  localStorage keys keep `fretflow` so Noah's installed app and saved data carry over.

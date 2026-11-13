@@ -1,7 +1,7 @@
 // Pitch → colour (the synesthesia layer).
 import { mod12, fifthsIndex } from './theory.js';
 
-// Chromatic map, kept from the original FretFlow so trained associations carry over (C = red).
+// Chromatic map, kept from the original FretFlow prototype so trained associations carry over (C = red).
 const CHROMA_HUE = [0, 28, 54, 88, 134, 168, 192, 218, 248, 276, 304, 334];
 const CHROMA_SAT = [88, 92, 94, 82, 82, 84, 90, 90, 84, 86, 88, 88];
 export const COLOR_NAMES = ['Crimson', 'Sunset orange', 'Gold', 'Chartreuse', 'Emerald', 'Mint',

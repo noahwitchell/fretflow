@@ -1,4 +1,4 @@
-# FretFlow
+# ChordFlow
 
 **Open on your phone: https://noahwitchell.github.io/fretflow/**
 iPhone: Safari → Share → *Add to Home Screen*. Android: Chrome → ⋮ → *Install app*.

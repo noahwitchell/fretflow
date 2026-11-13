@@ -1,5 +1,5 @@
-"""Builds icons/icon.svg: a stemless whole note whose body is the colour wheel,
-with a C-major chord triangle (C, E, G dots joined by lines) across its hollow.
+"""Builds icons/icon.svg: a C-major chord triangle (C, E, G dots joined by lines) in the
+background, with a smaller stemless whole note (its body is the colour wheel) laid over its centre.
 Run: python3 tools/make_icon.py  (then tools/render_icons.sh for the PNGs)"""
 import math, colorsys
 
@@ -48,17 +48,26 @@ for k in range(N):
     x0, y0 = pt(a0, 300); x1, y1 = pt(a1, 300)
     wedges.append(f'<path d="M{CX} {CY} L{x0:.2f} {y0:.2f} L{x1:.2f} {y1:.2f}Z" fill="{hsl(h, s, 56)}"/>')
 
-# chord: C (0°), E (4 semitones = 120°... use the note's hue position), G
-notes = [(0, 'C'), (4, 'E'), (7, 'G')]
-pts = []
-for pc, _ in notes:
-    a = pc * 30  # slot on the wheel
-    pts.append((ring_mid(a), hsl(HUES[pc], SATS[pc], 58)))
+# chord triangle, behind the note: C, E, G at their wheel angles, centred on the note
+NOTE_SCALE = 0.56
+TRI_R = 168
+notes = [0, 4, 7]
+raw = [pt(pc * 30, TRI_R) for pc in notes]
+gx = sum(x for x, _ in raw) / 3 - CX; gy = sum(y for _, y in raw) / 3 - CY
+pts = [((x - gx, y - gy), hsl(HUES[pc], SATS[pc], 58)) for (x, y), pc in zip(raw, notes)]
 
 tri = ' '.join(f'{x:.1f},{y:.1f}' for (x, y), _ in pts)
 dots = ''.join(
-    f'<circle cx="{x:.1f}" cy="{y:.1f}" r="30" fill="{c}" stroke="#fff" stroke-width="9" filter="url(#glow)"/>'
+    f'<circle cx="{x:.1f}" cy="{y:.1f}" r="31" fill="{c}" stroke="#fff" stroke-width="9" filter="url(#glow)"/>'
     for (x, y), c in pts)
+scale = f'translate({CX} {CY}) scale({NOTE_SCALE}) translate({-CX} {-CY})'
+# centre the whole picture (dots + note) in the square
+xs = [x for (x, _), _ in pts] ; ys = [y for (_, y), _ in pts]
+nw, nh = 0.56 * 180, 0.56 * 160  # rough half-size of the tilted note
+x0, x1 = min(min(xs) - 36, CX - nw), max(max(xs) + 36, CX + nw)
+y0, y1 = min(min(ys) - 36, CY - nh), max(max(ys) + 36, CY + nh)
+shift = f'translate({256 - (x0 + x1) / 2:.1f} {256 - (y0 + y1) / 2:.1f})'
+
 
 svg = f'''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
   <defs>
@@ -74,18 +83,23 @@ svg = f'''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
       <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
     </filter>
     <filter id="soft" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="22"/></filter>
+    <filter id="shadow" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="14"/></filter>
     <linearGradient id="sheen" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0" stop-color="#fff" stop-opacity="0.35"/><stop offset="0.5" stop-color="#fff" stop-opacity="0"/>
     </linearGradient>
   </defs>
   <rect width="512" height="512" fill="url(#bg)"/>
-  <g mask="url(#noteMask)" filter="url(#soft)" opacity="0.55">{''.join(wedges)}</g>
-  <g mask="url(#noteMask)">{''.join(wedges)}
-    {ellipse(OUT, 'fill="url(#sheen)"')}
-  </g>
-  {ellipse(INN, 'fill="#0b0d14"')}
-  <polygon points="{tri}" fill="#ffffff" fill-opacity="0.10" stroke="#fff" stroke-width="10" stroke-linejoin="round" stroke-opacity="0.95"/>
+  <g transform="{shift}">
+  <polygon points="{tri}" fill="#ffffff" fill-opacity="0.07" stroke="#fff" stroke-width="10" stroke-linejoin="round" stroke-opacity="0.9"/>
   {dots}
+  <g transform="{scale}">
+    <g filter="url(#shadow)"><g mask="url(#noteMask)">{ellipse(OUT, 'fill="#05060a" fill-opacity="0.9"')}</g></g>
+    <g mask="url(#noteMask)" filter="url(#soft)" opacity="0.55">{''.join(wedges)}</g>
+    <g mask="url(#noteMask)">{''.join(wedges)}
+      {ellipse(OUT, 'fill="url(#sheen)"')}
+    </g>
+  </g>
+  </g>
 </svg>
 '''
 open('icons/icon.svg', 'w').write(svg)

@@ -72,10 +72,10 @@ function unblockSteps() {
       <li>Open the iPhone <b>Settings</b> app → <b>Apps</b> → <b>Safari</b>.</li>
       <li>Scroll to <b>Settings for Websites</b> → <b>Microphone</b> → choose <b>Ask</b> (or Allow).</li>
       <li>Check <b>Settings → Screen Time → Content &amp; Privacy Restrictions → Microphone</b> isn't set to Don't Allow.</li>
-      <li>${app ? 'Swipe FretFlow away in the app switcher, reopen it' : 'Reload this page'}, then tap <b>Try again</b> below and choose Allow.</li>
+      <li>${app ? 'Swipe ChordFlow away in the app switcher, reopen it' : 'Reload this page'}, then tap <b>Try again</b> below and choose Allow.</li>
     </ol><p class="dim small">On iOS 17 or older, Microphone is under Settings → Safari directly.</p>`;
   if (android) return `<ol>
-      <li>${app ? 'Long-press the FretFlow icon → <b>App info</b> → <b>Permissions</b>' : 'Tap the icon left of the address bar → <b>Permissions</b>'} → <b>Microphone</b> → <b>Allow</b>.</li>
+      <li>${app ? 'Long-press the ChordFlow icon → <b>App info</b> → <b>Permissions</b>' : 'Tap the icon left of the address bar → <b>Permissions</b>'} → <b>Microphone</b> → <b>Allow</b>.</li>
       <li>Come back and tap <b>Try again</b>.</li></ol>`;
   return `<ol><li>Click the icon at the left of the address bar → <b>Microphone</b> → <b>Allow</b>.</li><li>Click <b>Try again</b>.</li></ol>`;
 }
@@ -93,12 +93,12 @@ function paintMic() {
   if (micState === 'error') {
     box.innerHTML = `<div class="mic-warn"><b>🎤 The microphone didn't start</b>
       <p class="dim small">The phone said: <code>${micErr}</code></p>
-      <ol><li>Swipe FretFlow away in the app switcher and reopen it.</li><li>Make sure no other app (a call, voice memo, music app recording) is using the mic.</li><li>Tap <b>Try again</b>.</li></ol>
+      <ol><li>Swipe ChordFlow away in the app switcher and reopen it.</li><li>Make sure no other app (a call, voice memo, music app recording) is using the mic.</li><li>Tap <b>Try again</b>.</li></ol>
       <button class="btn primary" data-act="allow">Try again</button></div>`;
     return;
   }
   if (micState === 'unsupported') {
-    box.innerHTML = `<div class="mic-warn"><b>🎤 No microphone available here</b><p class="dim small">This browser has no microphone access at all. Open FretFlow in Safari (iPhone) or Chrome, over https.</p></div>`;
+    box.innerHTML = `<div class="mic-warn"><b>🎤 No microphone available here</b><p class="dim small">This browser has no microphone access at all. Open ChordFlow in Safari (iPhone) or Chrome, over https.</p></div>`;
     return;
   }
   box.innerHTML = `<div class="mic-ask"><span>Sing mode listens through your microphone. Nothing is recorded or sent anywhere.</span>
@@ -142,7 +142,7 @@ function onStatus(st) {
   const now = performance.now();
   if (st.level > 0.005) quietSince = now;
   let msg = '', cls = 'm-diag';
-  if (st.dead) { msg = `The mic is on but sends only silence (audio ${st.ctx}, mic ${st.track}). Tap ■ Stop, swipe FretFlow away in the app switcher, reopen, and start again. If it keeps happening, tell Claude this line.`; cls += ' bad'; }
+  if (st.dead) { msg = `The mic is on but sends only silence (audio ${st.ctx}, mic ${st.track}). Tap ■ Stop, swipe ChordFlow away in the app switcher, reopen, and start again. If it keeps happening, tell Claude this line.`; cls += ' bad'; }
   else if (st.track === 'muted') { msg = 'Another app has the microphone (a call, Voice Memos, dictation). Close it and start again.'; cls += ' bad'; }
   else if (now - quietSince > 3000) msg = 'Hearing very little: sing louder or bring the phone closer.';
   if (box.dataset.msg !== msg) { box.dataset.msg = msg; box.innerHTML = msg; box.className = cls; }
